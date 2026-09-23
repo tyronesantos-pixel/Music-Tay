@@ -15,9 +15,9 @@ export const LikedView: React.FC<LikedViewProps> = ({ onOpenCollectionModal }) =
   const likedVideos = videos.filter((v) => likedVideoIds.has(v.id));
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full pb-20 sm:pb-6">
-      <div className="flex items-center gap-3.5 p-5 rounded-2xl bg-[#181818] border border-white/5">
-        <div className="w-12 h-12 rounded-xl bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center shrink-0">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
+      <div className="flex items-center gap-3.5 p-5 rounded-2xl bg-[#16141f] border border-white/5">
+        <div className="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
           <Heart className="w-6 h-6 fill-current" />
         </div>
         <div>
@@ -29,7 +29,7 @@ export const LikedView: React.FC<LikedViewProps> = ({ onOpenCollectionModal }) =
       </div>
 
       {likedVideos.length === 0 ? (
-        <div className="bg-[#181818] border border-white/5 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
+        <div className="bg-[#16141f] border border-white/5 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
           <Heart className="w-12 h-12 text-zinc-700 mb-3" />
           <h3 className="text-base font-bold text-white mb-1">Nenhum vídeo curtido ainda</h3>
           <p className="text-xs text-zinc-400 max-w-sm">

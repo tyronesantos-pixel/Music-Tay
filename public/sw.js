@@ -1,26 +1,23 @@
-const CACHE_NAME = 'player-tyrone-v1';
+const CACHE_NAME = 'player-tyrone-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
-  '/pwa-maskable-512x512.png',
   '/apple-touch-icon.png',
 ];
 
-// Install: precache critical shell assets
+// Install: precache critical assets & force update
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(PRECACHE_ASSETS);
+    })
   );
 });
 
-// Activate: clean up older caches and claim clients
+// Activate: purge any older caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -38,45 +35,57 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Network first with Cache fallback for navigation & assets
+// Fetch: Never intercept Firestore/Google/Firebase/YouTube requests
 self.addEventListener('fetch', (event) => {
-  // Ignore non-GET or cross-origin/YouTube API calls
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // For YouTube or Firebase, bypass service worker
+  // Bypass service worker for all cloud APIs, Firebase, and YouTube
   if (
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('firebaseio.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
     url.hostname.includes('youtube.com') ||
     url.hostname.includes('ytimg.com') ||
-    url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('firebaseio.com')
+    url.pathname.startsWith('/api')
   ) {
     return;
   }
 
+  // Navigation (HTML document): ALWAYS Network first so updates on Vercel reflect instantly
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Static assets: Stale while revalidate
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Cache successful responses for our own origin
-        if (response.status === 200 && url.origin === self.location.origin) {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return response;
-      })
-      .catch(async () => {
-        const cachedResponse = await caches.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        // Fallback for HTML navigation
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-      })
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });

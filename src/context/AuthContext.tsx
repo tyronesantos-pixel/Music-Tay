@@ -19,6 +19,7 @@ export interface AuthUser {
 
 interface StoredAccount extends AuthUser {
   nameLower?: string;
+  username?: string;
   passwordHash: string;
   lastLoginAt?: string;
 }
@@ -38,7 +39,7 @@ const USERS_COLLECTION = 'users';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Deterministic hashing for cross-browser password matching
+// Deterministic hashing for universal cross-browser/cross-device matching
 function hashPassword(pass: string): string {
   let hash = 0;
   for (let i = 0; i < pass.length; i++) {
@@ -49,9 +50,9 @@ function hashPassword(pass: string): string {
   return `h_${Math.abs(hash).toString(16)}_${pass.length}`;
 }
 
-// Generates safe, consistent document ID for Firestore
-function encodeUserDocId(emailOrUser: string): string {
-  return 'u_' + encodeURIComponent(emailOrUser.trim().toLowerCase()).replace(/[%.-]/g, '_');
+// Clean alphanumeric ID for Firestore document keys
+function sanitizeDocId(input: string): string {
+  return 'u_' + input.trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -64,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const session = localStorage.getItem(AUTH_STORAGE_KEY);
       if (session) {
         const parsed = JSON.parse(session);
-        if (parsed && parsed.id && parsed.email) {
+        if (parsed && parsed.id && (parsed.email || parsed.name)) {
           setUser(parsed);
         }
       }
@@ -75,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Local accounts cache helpers
+  // Local accounts backup cache
   const getLocalAccounts = (): StoredAccount[] => {
     try {
       const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
@@ -115,10 +116,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetHash = hashPassword(password);
     let matchedAccount: StoredAccount | null = null;
 
-    // 1. Try finding user in Firestore Cloud Database (works in any browser/device!)
+    // 1. Check in Cloud Firestore
     try {
-      // Direct doc ID check
-      const docId = encodeUserDocId(cleanLogin);
+      const docId = sanitizeDocId(cleanLogin);
       const userDocRef = doc(db, USERS_COLLECTION, docId);
       const snap = await getDoc(userDocRef);
 
@@ -129,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: data.name || cleanLogin,
           nameLower: data.nameLower || (data.name ? data.name.toLowerCase() : cleanLogin),
           email: data.email || cleanLogin,
+          username: data.username,
           passwordHash: data.passwordHash || '',
           createdAt: data.createdAt || new Date().toISOString(),
           lastLoginAt: data.lastLoginAt,
@@ -146,14 +147,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: data.name || cleanLogin,
             nameLower: data.nameLower || cleanLogin,
             email: data.email || cleanLogin,
+            username: data.username,
             passwordHash: data.passwordHash || '',
             createdAt: data.createdAt || new Date().toISOString(),
             lastLoginAt: data.lastLoginAt,
           };
         } else {
-          // Query by nameLower / username
+          // Query by nameLower
           const qName = query(collection(db, USERS_COLLECTION), where('nameLower', '==', cleanLogin));
           const nameSnap = await getDocs(qName);
+
           if (!nameSnap.empty) {
             const firstDoc = nameSnap.docs[0];
             const data = firstDoc.data();
@@ -162,10 +165,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: data.name || cleanLogin,
               nameLower: data.nameLower || cleanLogin,
               email: data.email || cleanLogin,
+              username: data.username,
               passwordHash: data.passwordHash || '',
               createdAt: data.createdAt || new Date().toISOString(),
               lastLoginAt: data.lastLoginAt,
             };
+          } else {
+            // Broad search over all registered users in the database
+            const allUsersSnap = await getDocs(collection(db, USERS_COLLECTION));
+            for (const docItem of allUsersSnap.docs) {
+              const data = docItem.data();
+              const docEmail = (data.email || '').toLowerCase().trim();
+              const docName = (data.name || '').toLowerCase().trim();
+              const docUsername = (data.username || '').toLowerCase().trim();
+              const emailPrefix = docEmail.includes('@') ? docEmail.split('@')[0] : '';
+
+              if (
+                docEmail === cleanLogin ||
+                docName === cleanLogin ||
+                docUsername === cleanLogin ||
+                (emailPrefix && emailPrefix === cleanLogin)
+              ) {
+                matchedAccount = {
+                  id: data.id || docItem.id,
+                  name: data.name || cleanLogin,
+                  nameLower: data.nameLower || docName,
+                  email: data.email || cleanLogin,
+                  username: data.username,
+                  passwordHash: data.passwordHash || '',
+                  createdAt: data.createdAt || new Date().toISOString(),
+                  lastLoginAt: data.lastLoginAt,
+                };
+                break;
+              }
+            }
           }
         }
       }
@@ -173,27 +206,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('[Auth] Firestore query error, checking local fallback:', cloudErr);
     }
 
-    // 2. Fallback to local accounts cache if Firestore was offline
+    // 2. Fallback to local accounts cache if Firestore was offline or network delayed
     if (!matchedAccount) {
       const localAccounts = getLocalAccounts();
       matchedAccount =
-        localAccounts.find(
-          (acc) =>
-            acc.email.toLowerCase() === cleanLogin ||
-            acc.name.toLowerCase() === cleanLogin
-        ) || null;
+        localAccounts.find((acc) => {
+          const accEmail = acc.email.toLowerCase();
+          const accName = acc.name.toLowerCase();
+          const emailPrefix = accEmail.includes('@') ? accEmail.split('@')[0] : '';
+          return (
+            accEmail === cleanLogin ||
+            accName === cleanLogin ||
+            (emailPrefix && emailPrefix === cleanLogin)
+          );
+        }) || null;
     }
 
     if (!matchedAccount) {
       return {
         success: false,
-        error: 'Conta não encontrada. Verifique os dados ou crie sua conta na aba "Criar Conta"!',
+        error: 'Conta não encontrada. Verifique o email/usuário digitado ou crie sua conta na aba "Criar Conta"!',
       };
     }
 
-    // Verify Password
+    // 3. Verify Password
     if (matchedAccount.passwordHash !== targetHash) {
-      return { success: false, error: 'Senha incorreta. Verifique e tente novamente.' };
+      return { success: false, error: 'Senha incorreta. Verifique a senha e tente novamente.' };
     }
 
     const authUser: AuthUser = {
@@ -203,17 +241,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: matchedAccount.createdAt,
     };
 
-    // Update session
+    // 4. Save session and local cache
     setUser(authUser);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
     saveLocalAccount(matchedAccount);
 
     // Update lastLoginAt in Firestore
     try {
-      const docId = encodeUserDocId(matchedAccount.email);
+      const docId = sanitizeDocId(matchedAccount.email);
       setDoc(doc(db, USERS_COLLECTION, docId), { lastLoginAt: new Date().toISOString() }, { merge: true }).catch(() => {});
     } catch {
-      // Ignore
+      // Ignore background update
     }
 
     return { success: true };
@@ -242,7 +280,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'A senha deve conter pelo menos 4 caracteres.' };
     }
 
-    const docId = encodeUserDocId(cleanLogin);
+    const docId = sanitizeDocId(cleanLogin);
     const targetHash = hashPassword(password);
 
     // 1. Check if user already exists in Cloud Firestore
@@ -264,16 +302,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: cleanName,
       nameLower: cleanName.toLowerCase(),
       email: cleanLogin,
+      username: cleanLogin.includes('@') ? cleanLogin.split('@')[0] : cleanLogin,
       passwordHash: targetHash,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
     };
 
-    // 3. Save directly to Cloud Firestore so other browsers can authenticate immediately!
+    // 3. Save directly to Cloud Firestore
     try {
       await setDoc(doc(db, USERS_COLLECTION, docId), newAccount, { merge: true });
-    } catch (cloudErr) {
+    } catch (cloudErr: any) {
       console.error('[Auth] Failed to write user to Cloud Firestore:', cloudErr);
+      return {
+        success: false,
+        error:
+          'Não foi possível salvar os dados no banco em nuvem: ' +
+          (cloudErr?.message || 'Falha de conexão. Tente novamente.'),
+      };
     }
 
     // 4. Save local backup cache

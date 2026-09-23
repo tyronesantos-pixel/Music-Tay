@@ -62,7 +62,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#121018]/95 backdrop-blur-xl border-t border-white/10 px-3 py-1.5 flex items-center justify-around select-none">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#121018]/95 backdrop-blur-xl border-t border-white/10 px-2 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] flex items-center justify-around select-none shadow-2xl">
       {navItems.map((item, index) => {
         if (item.isAction) {
           return (

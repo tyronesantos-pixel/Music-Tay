@@ -74,7 +74,7 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
   const catInfo = getCategoryInfo(currentPlaylist.category);
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full pb-20 sm:pb-6">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
       {/* Playlist Hero Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#16141f] border border-violet-500/20 shadow-xl relative overflow-hidden">
         {/* Subtle decorative glow */}

@@ -158,7 +158,7 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-5 max-w-4xl mx-auto w-full">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-5 max-w-4xl mx-auto w-full pb-36 sm:pb-8">
       {/* Header Banner */}
       <div className="bg-[#16141f] border border-violet-500/20 rounded-2xl p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3.5">

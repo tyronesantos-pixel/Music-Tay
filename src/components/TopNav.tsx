@@ -107,25 +107,25 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Playlists Dropdown Trigger */}
+          {/* Playlists Dropdown Trigger (Desktop / Tablet) */}
           {onOpenPlaylistsModal && (
             <button
               onClick={onOpenPlaylistsModal}
-              className="px-3 py-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hidden sm:flex px-3 py-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-white border border-white/10 text-xs font-semibold items-center gap-1.5 transition-colors cursor-pointer"
               title="Abrir lista de Playlists"
             >
               <Layers className="w-3.5 h-3.5 text-violet-400" />
-              <span className="hidden sm:inline">Playlists</span>
+              <span>Playlists</span>
               <span className="text-[10px] text-cyan-300 font-bold">({collections.length})</span>
               <ChevronDown className="w-3 h-3 text-zinc-400" />
             </button>
           )}
 
-          {/* App / Play Store Button */}
+          {/* App / Play Store Button (Desktop / Tablet) */}
           {onOpenPlayStoreModal && (
             <button
               onClick={onOpenPlayStoreModal}
-              className="px-2.5 py-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-cyan-300 border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="hidden md:flex px-2.5 py-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-cyan-300 border border-white/10 text-xs font-semibold items-center gap-1.5 transition-colors cursor-pointer"
               title="Instalar no Celular ou Baixar para Play Store"
             >
               <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
@@ -144,10 +144,10 @@ export const TopNav: React.FC<TopNavProps> = ({
             </button>
           )}
 
-          {/* Manage Library Button */}
+          {/* Manage Library Button (Desktop / Tablet) */}
           <button
             onClick={() => setCurrentView('manage')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`hidden sm:flex px-3 py-1.5 rounded-full text-xs font-semibold transition-all items-center gap-1.5 cursor-pointer ${
               currentView === 'manage'
                 ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-600/30'
                 : 'bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-white border border-white/10'
@@ -155,24 +155,24 @@ export const TopNav: React.FC<TopNavProps> = ({
             title="Gerenciar Biblioteca"
           >
             <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Gerenciar</span>
+            <span>Gerenciar</span>
             <span className="text-[10px] opacity-75">({videos.length})</span>
           </button>
 
-          {/* Add YouTube Link Button */}
+          {/* Add YouTube Link Button (Desktop / Tablet) */}
           <button
             onClick={onOpenAddModal}
-            className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold shadow-md shadow-violet-600/25 transition-all flex items-center gap-1.5 cursor-pointer transform active:scale-95"
+            className="hidden sm:flex px-3.5 py-1.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold shadow-md shadow-violet-600/25 transition-all items-center gap-1.5 cursor-pointer transform active:scale-95"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span className="hidden sm:inline">Adicionar</span>
+            <span>Adicionar</span>
           </button>
 
           {/* User Profile & Logout */}
           {user && (
-            <div className="flex items-center gap-1.5 pl-1 border-l border-white/10">
+            <div className="flex items-center gap-1 sm:gap-1.5 pl-1 border-l border-white/10">
               <div
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-white text-xs font-extrabold flex items-center justify-center shadow-sm cursor-default"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-white text-[11px] sm:text-xs font-extrabold flex items-center justify-center shadow-sm cursor-default shrink-0"
                 title={`Logado como: ${user.name} (${user.email})`}
               >
                 {user.name.charAt(0).toUpperCase()}
@@ -180,7 +180,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               <button
                 onClick={logout}
                 title="Sair da Conta"
-                className="p-1.5 rounded-full bg-[#1f1b2b] hover:bg-rose-950/50 text-zinc-400 hover:text-rose-400 border border-white/10 transition-colors cursor-pointer"
+                className="p-1 sm:p-1.5 rounded-full bg-[#1f1b2b] hover:bg-rose-950/50 text-zinc-400 hover:text-rose-400 border border-white/10 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

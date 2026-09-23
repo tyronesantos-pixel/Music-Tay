@@ -86,17 +86,20 @@ export const WatchView: React.FC<WatchViewProps> = ({
   const embedUrl = `https://www.youtube-nocookie.com/embed/${currentVideo.id}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&playsinline=1`;
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-5 max-w-6xl mx-auto w-full pb-20 sm:pb-6">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
       {/* Back button for mobile */}
       <div className="flex items-center justify-between sm:hidden">
         <button
           onClick={() => setCurrentView('home')}
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white"
+          className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white bg-[#1b1825] px-3 py-1.5 rounded-full border border-white/10 active:scale-95 transition-transform"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Voltar</span>
+          <span>Voltar para Início</span>
         </button>
-        <span className="text-[10px] text-[#1DB954] font-medium">● Ao Vivo</span>
+        <span className="text-[10px] text-cyan-400 font-bold flex items-center gap-1 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          Reproduzindo
+        </span>
       </div>
 
       {/* Cinema / Theater Grid */}
@@ -121,13 +124,13 @@ export const WatchView: React.FC<WatchViewProps> = ({
 
           {/* Video Metadata Header */}
           <div className="mt-3.5 flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-[240px]">
-                <h1 className="text-base sm:text-xl font-bold text-white leading-tight">
+            <div className="flex flex-col gap-2.5">
+              <div>
+                <h1 className="text-sm sm:text-xl font-bold text-white leading-tight">
                   {currentVideo.title}
                 </h1>
                 <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400">
-                  <span className="text-[#1DB954] font-medium">{currentVideo.channelTitle}</span>
+                  <span className="text-violet-400 font-semibold">{currentVideo.channelTitle}</span>
                   <span>•</span>
                   <span>Salvo em tempo real</span>
                   {currentVideo.duration > 0 && (
@@ -139,28 +142,28 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Action Buttons - smooth horizontal scroll on mobile */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full">
                 {/* Like */}
                 <button
                   onClick={() => toggleLike(currentVideo.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap active:scale-95 cursor-pointer ${
                     isLiked
-                      ? 'bg-[#1DB954] text-black shadow-md'
-                      : 'bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-white'
+                      ? 'bg-rose-600 text-white shadow-md'
+                      : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
                   }`}
                 >
                   <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-                  <span>Curtir</span>
+                  <span>{isLiked ? 'Curtido' : 'Curtir'}</span>
                 </button>
 
                 {/* Add to Playlist */}
                 <button
                   onClick={() => onOpenCollectionModal(currentVideo.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-white text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-300 text-xs font-semibold transition-colors whitespace-nowrap active:scale-95 cursor-pointer border border-white/5"
                   title="Adicionar à Playlist"
                 >
-                  <FolderPlus className="w-3.5 h-3.5 text-[#1DB954]" />
+                  <FolderPlus className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Playlist</span>
                 </button>
 
@@ -168,11 +171,11 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 {onOpenPocketMode && (
                   <button
                     onClick={onOpenPocketMode}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-amber-300 text-xs font-medium transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-amber-300 text-xs font-semibold transition-colors whitespace-nowrap active:scale-95 cursor-pointer border border-amber-500/20"
                     title="Modo Bolso (Ouvir com tela 100% preta / economia de bateria)"
                   >
                     <Moon className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="hidden sm:inline">Modo Bolso</span>
+                    <span>Modo Bolso</span>
                   </button>
                 )}
 
@@ -180,7 +183,7 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 {onOpenGuideModal && (
                   <button
                     onClick={onOpenGuideModal}
-                    className="p-2 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-[#1DB954] transition-colors"
+                    className="p-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-violet-400 transition-colors shrink-0 active:scale-95 cursor-pointer border border-white/5"
                     title="Dicas para tocar com tela bloqueada"
                   >
                     <Smartphone className="w-3.5 h-3.5" />
@@ -191,10 +194,10 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 <button
                   onClick={handleSyncCurrent}
                   disabled={isSyncingCurrent}
-                  className="p-2 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-[#1DB954] transition-colors"
+                  className="p-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-400 transition-colors shrink-0 active:scale-95 cursor-pointer border border-white/5"
                   title="Atualizar dados do vídeo"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCurrent ? 'animate-spin text-[#1DB954]' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCurrent ? 'animate-spin text-cyan-400' : ''}`} />
                 </button>
 
                 {/* Theater Toggle */}
@@ -202,8 +205,8 @@ export const WatchView: React.FC<WatchViewProps> = ({
                   onClick={toggleTheater}
                   className={`p-2 rounded-full transition-colors hidden sm:block ${
                     isTheaterMode
-                      ? 'bg-[#1DB954] text-black'
-                      : 'bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-white'
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
                   }`}
                   title="Modo Cinema"
                 >
@@ -213,10 +216,10 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 {/* Share Link */}
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-white text-xs font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white text-xs font-semibold transition-colors whitespace-nowrap active:scale-95 cursor-pointer border border-white/5"
                   title="Copiar Link"
                 >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-[#1DB954]" /> : <Share2 className="w-3.5 h-3.5" />}
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Share2 className="w-3.5 h-3.5" />}
                   <span>{copiedLink ? 'Copiado!' : 'Compartilhar'}</span>
                 </button>
 
@@ -225,7 +228,7 @@ export const WatchView: React.FC<WatchViewProps> = ({
                   href={currentVideo.youtubeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 hover:text-white transition-colors"
+                  className="p-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-rose-400 transition-colors shrink-0 active:scale-95 border border-white/5"
                   title="Abrir no YouTube"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />

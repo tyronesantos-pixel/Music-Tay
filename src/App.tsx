@@ -41,7 +41,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0f0d14] text-white overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-[100dvh] w-screen bg-[#0f0d14] text-white overflow-hidden select-none font-sans">
       {/* Top Universal Navbar */}
       <TopNav
         onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
@@ -61,7 +61,7 @@ const MainLayout: React.FC = () => {
         />
 
         {/* View Router */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#0c0a12] overflow-hidden relative pb-16 md:pb-0">
+        <main className="flex-1 flex flex-col min-w-0 bg-[#0c0a12] overflow-hidden relative">
           {currentView === 'watch' ? (
             <WatchView onOpenCollectionModal={handleOpenCollectionModal} />
           ) : (

@@ -17,10 +17,11 @@ interface FloatingAudioIconProps {
 
 export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPocketMode, isPocketMode = false }) => {
   const { currentVideo, isPlaying, resume, pause } = useVideoPlayer();
-  const { openVideoView } = useVideoLibrary();
+  const { currentView, openVideoView } = useVideoLibrary();
   const [isMinimized, setIsMinimized] = useState(false);
 
-  if (!currentVideo || isPocketMode) return null;
+  // Do not show floating bar if in WatchView (user is already watching the main player!) or pocket mode
+  if (!currentVideo || isPocketMode || currentView === 'watch') return null;
 
   const handleExplode = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -39,7 +40,7 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
   // Ultra-compact bubble mode: just a floating glowing violet/cyan musical icon
   if (isMinimized) {
     return (
-      <div className="fixed bottom-16 sm:bottom-6 right-3 sm:right-6 z-40 animate-in fade-in zoom-in-95 duration-200">
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+72px)] sm:bottom-6 right-3 sm:right-6 z-40 animate-in fade-in zoom-in-95 duration-200">
         <div
           onClick={() => setIsMinimized(false)}
           className="group relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white shadow-xl shadow-violet-600/30 cursor-pointer transition-all transform hover:scale-105 active:scale-95"
@@ -71,10 +72,10 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
 
   // Floating pill
   return (
-    <div className="fixed bottom-16 sm:bottom-6 right-3 sm:right-6 z-40 max-w-sm w-[calc(100vw-24px)] sm:w-auto animate-in fade-in slide-in-from-bottom-3 duration-200">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+68px)] sm:bottom-6 left-2.5 right-2.5 sm:left-auto sm:right-6 z-40 max-w-sm sm:w-auto animate-in fade-in slide-in-from-bottom-3 duration-200">
       <div
         onClick={handleExplode}
-        className="flex items-center justify-between gap-3 p-2.5 sm:px-3.5 sm:py-2.5 rounded-2xl bg-[#16141f]/95 hover:bg-[#1c1926] backdrop-blur-xl border border-violet-500/30 shadow-2xl shadow-black/80 cursor-pointer transition-all group"
+        className="flex items-center justify-between gap-2.5 p-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-[#16141f]/95 hover:bg-[#1c1926] backdrop-blur-xl border border-violet-500/30 shadow-2xl shadow-black/80 cursor-pointer transition-all group active:scale-[0.99]"
       >
         {/* Left: Glowing Animated Equalizer */}
         <div className="flex items-center gap-2.5 min-w-0">
