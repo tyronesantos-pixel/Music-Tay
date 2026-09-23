@@ -1,0 +1,112 @@
+import React from 'react';
+import { Home, Zap, Plus, Layers, Tv } from 'lucide-react';
+import { useVideoLibrary } from '../context/VideoLibraryContext';
+import { YouTubeViewMode } from '../services/youtubeService';
+
+interface MobileBottomNavProps {
+  onOpenAddModal: () => void;
+  onOpenPlaylistsModal?: () => void;
+}
+
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
+  onOpenAddModal,
+  onOpenPlaylistsModal,
+}) => {
+  const { currentView, setCurrentView, videos, collections, openCollection } = useVideoLibrary();
+
+  const navItems: Array<{
+    id: YouTubeViewMode;
+    label: string;
+    icon: React.ReactNode;
+    isAction?: boolean;
+    badge?: number;
+    onClick?: () => void;
+  }> = [
+    {
+      id: 'home',
+      label: 'Início',
+      icon: <Home className="w-5 h-5" />,
+    },
+    {
+      id: 'collection',
+      label: 'Playlists',
+      icon: <Layers className="w-5 h-5" />,
+      badge: collections.length,
+      onClick: () => {
+        if (onOpenPlaylistsModal) {
+          onOpenPlaylistsModal();
+        } else if (collections.length > 0) {
+          openCollection(collections[0].id);
+        } else {
+          setCurrentView('manage');
+        }
+      },
+    },
+    {
+      id: 'home', // placeholder id since it's an action
+      label: 'Adicionar',
+      icon: <Plus className="w-6 h-6 text-black" />,
+      isAction: true,
+    },
+    {
+      id: 'manage',
+      label: 'Biblioteca',
+      icon: <Layers className="w-5 h-5" />,
+      badge: videos.length,
+    },
+    {
+      id: 'watch',
+      label: 'Player',
+      icon: <Tv className="w-5 h-5" />,
+    },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-t border-white/10 px-3 py-1.5 flex items-center justify-around select-none">
+      {navItems.map((item, index) => {
+        if (item.isAction) {
+          return (
+            <button
+              key={index}
+              onClick={onOpenAddModal}
+              className="flex flex-col items-center justify-center -mt-5 group"
+            >
+              <div className="w-12 h-12 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black flex items-center justify-center shadow-lg shadow-[#1DB954]/40 transition-transform transform active:scale-95 group-hover:scale-105">
+                {item.icon}
+              </div>
+              <span className="text-[10px] font-semibold text-zinc-300 mt-1">Adicionar</span>
+            </button>
+          );
+        }
+
+        const isActive = currentView === item.id;
+
+        return (
+          <button
+            key={index}
+            onClick={() => (item.onClick ? item.onClick() : setCurrentView(item.id))}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-all ${
+              isActive ? 'text-[#1DB954]' : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <div className="relative">
+              {item.icon}
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-[#1DB954] text-black text-[9px] font-extrabold min-w-4 text-center">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+            <span
+              className={`text-[10px] mt-1 transition-all ${
+                isActive ? 'font-bold text-white' : 'font-medium'
+              }`}
+            >
+              {item.label}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+};

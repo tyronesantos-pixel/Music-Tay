@@ -1,0 +1,7 @@
+{
+  "name": "GitClip - Player de Vídeos e Clips do GitHub",
+  "description": "Reprodutor de vídeos e clips integrado ao GitHub e com upload local de arquivos, suporte a playlists, modo cinema, mini-player e visualização em reels.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
