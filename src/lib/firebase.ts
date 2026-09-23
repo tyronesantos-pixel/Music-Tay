@@ -6,8 +6,11 @@ import {
   setDoc,
   deleteDoc,
   updateDoc,
+  getDoc,
+  getDocs,
   onSnapshot,
   query,
+  where,
   orderBy,
   Firestore,
 } from 'firebase/firestore';
@@ -37,7 +40,10 @@ export {
   setDoc,
   deleteDoc,
   updateDoc,
+  getDoc,
+  getDocs,
   onSnapshot,
   query,
+  where,
   orderBy,
 };

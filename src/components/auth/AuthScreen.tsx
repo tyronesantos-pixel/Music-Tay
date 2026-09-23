@@ -10,8 +10,6 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowRight,
-  Headphones,
-  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PlayerLogo } from '../common/PlayerLogo';
@@ -56,20 +54,6 @@ export const AuthScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleQuickRegisterDemo = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    const demoName = 'Tyrone Convidado';
-    const demoUser = `usuario_${Math.floor(1000 + Math.random() * 9000)}`;
-    const demoPass = '123456';
-    const result = await register(demoName, demoUser, demoPass);
-    if (!result.success) {
-      // If user exists, try to log in
-      await login(demoUser, demoPass);
-    }
-    setIsSubmitting(false);
   };
 
   return (
@@ -245,19 +229,38 @@ export const AuthScreen: React.FC = () => {
             </button>
           </form>
 
-          {/* Fast 1-Click Access for Visitors/Testing */}
-          <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={handleQuickRegisterDemo}
-              disabled={isSubmitting}
-              className="py-2.5 px-3 rounded-xl bg-[#1d1929] hover:bg-[#252033] border border-violet-500/20 text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Headphones className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Acesso Rápido de Demonstração (1 Clique)</span>
-            </button>
-            <p className="text-[11px] text-zinc-500 text-center">
-              Sem burocracia ou confirmação por email: crie sua conta e use à vontade!
+          {/* Footer note */}
+          <div className="pt-2 border-t border-white/10 text-center">
+            <p className="text-[11px] text-zinc-500">
+              {mode === 'login' ? (
+                <>
+                  Não tem uma conta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setError(null);
+                    }}
+                    className="text-cyan-400 hover:underline font-bold cursor-pointer"
+                  >
+                    Cadastre-se grátis
+                  </button>
+                </>
+              ) : (
+                <>
+                  Já possui conta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                    }}
+                    className="text-violet-400 hover:underline font-bold cursor-pointer"
+                  >
+                    Faça login aqui
+                  </button>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -265,7 +268,7 @@ export const AuthScreen: React.FC = () => {
         {/* Security badge footer */}
         <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-zinc-500">
           <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Acesso Protegido • Sessão Privada & Nuvem</span>
+          <span>Acesso Protegido • Banco em Nuvem Global</span>
         </div>
       </div>
     </div>
