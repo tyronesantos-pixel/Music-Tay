@@ -62,16 +62,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#121212]/95 backdrop-blur-xl border-t border-white/10 px-3 py-1.5 flex items-center justify-around select-none">
+    <nav className="fixed bottom-0 inset-x-0 z-40 bg-[#121018]/95 backdrop-blur-xl border-t border-white/10 px-3 py-1.5 flex items-center justify-around select-none">
       {navItems.map((item, index) => {
         if (item.isAction) {
           return (
             <button
               key={index}
               onClick={onOpenAddModal}
-              className="flex flex-col items-center justify-center -mt-5 group"
+              className="flex flex-col items-center justify-center -mt-5 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black flex items-center justify-center shadow-lg shadow-[#1DB954]/40 transition-transform transform active:scale-95 group-hover:scale-105">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white flex items-center justify-center shadow-lg shadow-violet-600/40 transition-transform transform active:scale-95 group-hover:scale-105">
                 {item.icon}
               </div>
               <span className="text-[10px] font-semibold text-zinc-300 mt-1">Adicionar</span>
@@ -85,14 +85,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             key={index}
             onClick={() => (item.onClick ? item.onClick() : setCurrentView(item.id))}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-all ${
-              isActive ? 'text-[#1DB954]' : 'text-zinc-400 hover:text-white'
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-all cursor-pointer ${
+              isActive ? 'text-violet-400' : 'text-zinc-400 hover:text-white'
             }`}
           >
             <div className="relative">
               {item.icon}
               {item.badge !== undefined && item.badge > 0 && (
-                <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-[#1DB954] text-black text-[9px] font-extrabold min-w-4 text-center">
+                <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full bg-violet-600 text-white text-[9px] font-extrabold min-w-4 text-center">
                   {item.badge}
                 </span>
               )}

@@ -26,12 +26,15 @@ export interface YouTubeVideo {
   likes: number;
   status: 'active' | 'unavailable';
   notes?: string;
+  category?: 'all' | 'musicas' | 'videoclipe' | 'games';
 }
 
 export interface YouTubeCollection {
   id: string;
   name: string;
   description?: string;
+  category?: 'all' | 'musicas' | 'videoclipe' | 'games';
+  color?: string;
   videoIds: string[];
   createdAt: string;
   updatedAt: string;

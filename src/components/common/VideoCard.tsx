@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Heart, FolderPlus, ExternalLink, Trash2, Clock, RefreshCw } from 'lucide-react';
+import { Play, Heart, FolderPlus, ExternalLink, Trash2, RefreshCw } from 'lucide-react';
 import { YouTubeVideo, formatDuration } from '../../services/youtubeService';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
@@ -55,10 +55,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       onClick={handlePlayClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative flex flex-col bg-[#181818] hover:bg-[#282828] p-3 rounded-xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl"
+      className="group relative flex flex-col bg-[#181622] hover:bg-[#221e30] p-3 rounded-2xl overflow-hidden border border-white/5 hover:border-violet-500/30 transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl"
     >
       {/* Thumbnail */}
-      <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
         <img
           src={video.thumbnailUrl}
           alt={video.title}
@@ -72,7 +72,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         )}
 
-        {/* Spotify Green Play Button floating on bottom-right of thumbnail */}
+        {/* Play Button floating on bottom-right of thumbnail */}
         <div
           className={`absolute bottom-2 right-2 transition-all duration-200 ${
             isHovered || (isCurrent && isPlaying)
@@ -80,9 +80,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               : 'opacity-0 translate-y-2 scale-90 pointer-events-none'
           }`}
         >
-          <div className="w-10 h-10 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black flex items-center justify-center shadow-xl shadow-black/80 transform hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white flex items-center justify-center shadow-xl shadow-black/80 transform hover:scale-105 transition-transform">
             {isCurrent && isPlaying ? (
-              <span className="w-3 h-3 bg-black rounded-xs animate-pulse" />
+              <span className="w-3 h-3 bg-white rounded-xs animate-pulse" />
             ) : (
               <Play className="w-4 h-4 fill-current ml-0.5" />
             )}
@@ -99,7 +99,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
                 onOpenCollectionModal(video.id);
               }}
               title="Adicionar à Playlist"
-              className="p-1.5 rounded-full bg-black/70 hover:bg-black text-zinc-300 hover:text-[#1DB954] backdrop-blur-md transition-colors"
+              className="p-1.5 rounded-full bg-black/70 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer"
             >
               <FolderPlus className="w-3.5 h-3.5" />
             </button>
@@ -109,8 +109,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <button
             onClick={handleLikeClick}
             title={isLiked ? 'Descurtir' : 'Curtir'}
-            className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${
-              isLiked ? 'bg-[#1DB954] text-black' : 'bg-black/70 text-zinc-300 hover:text-white'
+            className={`p-1.5 rounded-full backdrop-blur-md transition-colors cursor-pointer ${
+              isLiked ? 'bg-rose-600 text-white' : 'bg-black/70 text-zinc-300 hover:text-white'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
@@ -120,9 +120,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <button
             onClick={handleSyncClick}
             title="Atualizar dados deste vídeo"
-            className="p-1.5 rounded-full bg-black/70 hover:bg-black text-zinc-300 hover:text-[#1DB954] backdrop-blur-md transition-colors"
+            className="p-1.5 rounded-full bg-black/70 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingThis ? 'animate-spin text-[#1DB954]' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingThis ? 'animate-spin text-cyan-400' : ''}`} />
           </button>
 
           {/* Delete */}
@@ -130,7 +130,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <button
               onClick={handleDeleteClick}
               title="Remover Vídeo"
-              className="p-1.5 rounded-full bg-black/70 hover:bg-rose-600 text-zinc-300 hover:text-white backdrop-blur-md transition-colors"
+              className="p-1.5 rounded-full bg-black/70 hover:bg-rose-600 text-zinc-300 hover:text-white backdrop-blur-md transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -141,7 +141,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       {/* Info Section */}
       <div className="pt-2.5 flex flex-col gap-1 flex-1 justify-between">
         <div>
-          <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-[#1DB954] transition-colors leading-snug">
+          <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-violet-300 transition-colors leading-snug">
             {video.title}
           </h3>
           <p className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
@@ -165,7 +165,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             title="Abrir no YouTube"
-            className="text-zinc-500 hover:text-[#1DB954] transition-colors"
+            className="text-zinc-500 hover:text-cyan-400 transition-colors"
           >
             <ExternalLink className="w-3 h-3" />
           </a>

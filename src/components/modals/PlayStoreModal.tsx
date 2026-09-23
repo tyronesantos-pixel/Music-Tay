@@ -8,8 +8,6 @@ import {
   Copy,
   Check,
   ShieldCheck,
-  ArrowRight,
-  Layers,
   Sparkles,
 } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
@@ -20,40 +18,43 @@ interface PlayStoreModalProps {
 }
 
 export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose }) => {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [activeTab, setActiveTab] = useState<'quick' | 'playstore'>('quick');
 
   if (!isOpen) return null;
 
-  const currentAppUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  // The actual public direct web application URL
+  const currentAppUrl = typeof window !== 'undefined' ? window.location.href : '';
 
-  const handleCopyUrl = () => {
-    if (typeof navigator !== 'undefined') {
-      navigator.clipboard.writeText(currentAppUrl);
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(currentAppUrl);
       setCopiedUrl(true);
-      setTimeout(() => setCopiedUrl(false), 2000);
+      setTimeout(() => setCopiedUrl(false), 2500);
+    } catch {
+      // Fallback
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div
-        className="w-full max-w-xl bg-[#181818] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-xl bg-[#16141f] border border-violet-500/20 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-[#161616]">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-[#13111a]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1DB954] to-emerald-700 flex items-center justify-center text-black font-extrabold shadow-md shadow-[#1DB954]/25">
-              <Smartphone className="w-5 h-5 text-black" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white font-extrabold shadow-md shadow-violet-600/25">
+              <Smartphone className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
                   Transformar em App & Play Store
                 </h3>
-                <span className="px-2 py-0.5 rounded-full bg-[#1DB954]/20 border border-[#1DB954]/40 text-[#1DB954] text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/40 text-cyan-300 text-[10px] font-bold">
                   PWA Ativo
                 </span>
               </div>
@@ -71,12 +72,12 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-white/10 bg-[#141414] px-4 pt-2 gap-2">
+        <div className="flex border-b border-white/10 bg-[#0f0d14] px-4 pt-2 gap-2">
           <button
             onClick={() => setActiveTab('quick')}
             className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'quick'
-                ? 'border-[#1DB954] text-[#1DB954]'
+                ? 'border-violet-500 text-violet-300'
                 : 'border-transparent text-zinc-400 hover:text-white'
             }`}
           >
@@ -87,7 +88,7 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
             onClick={() => setActiveTab('playstore')}
             className={`pb-2.5 px-3 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'playstore'
-                ? 'border-[#1DB954] text-[#1DB954]'
+                ? 'border-violet-500 text-violet-300'
                 : 'border-transparent text-zinc-400 hover:text-white'
             }`}
           >
@@ -101,10 +102,10 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
           {activeTab === 'quick' && (
             <>
               {/* Status Banner */}
-              <div className="p-4 rounded-xl bg-gradient-to-r from-[#1DB954]/15 via-emerald-900/10 to-transparent border border-[#1DB954]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-gradient-to-r from-violet-600/15 via-indigo-900/15 to-transparent border border-violet-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#1DB954]" />
+                    <CheckCircle2 className="w-4 h-4 text-cyan-400" />
                     <span>Seu app já está pronto para instalar!</span>
                   </h4>
                   <p className="text-xs text-zinc-400 mt-1 max-w-sm">
@@ -113,14 +114,14 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </div>
 
                 {isInstalled ? (
-                  <div className="px-4 py-2 rounded-full bg-emerald-500/20 text-[#1DB954] text-xs font-bold border border-[#1DB954]/30 flex items-center gap-1.5 self-start sm:self-auto">
+                  <div className="px-4 py-2 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold border border-cyan-500/30 flex items-center gap-1.5 self-start sm:self-auto">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Já Instalado</span>
                   </div>
                 ) : isInstallable ? (
                   <button
                     onClick={install}
-                    className="px-5 py-2.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-extrabold shadow-lg shadow-[#1DB954]/30 flex items-center gap-2 transition-transform active:scale-95 cursor-pointer self-start sm:self-auto shrink-0"
+                    className="px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-extrabold shadow-lg shadow-violet-600/30 flex items-center gap-2 transition-transform active:scale-95 cursor-pointer self-start sm:self-auto shrink-0"
                   >
                     <Download className="w-4 h-4 stroke-[3]" />
                     <span>Instalar no Celular</span>
@@ -132,9 +133,9 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 ) : (
                   <button
                     onClick={handleCopyUrl}
-                    className="px-4 py-2 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-zinc-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="px-4 py-2 rounded-full bg-[#242033] hover:bg-[#2e2940] text-zinc-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 border border-violet-500/20"
                   >
-                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-[#1DB954]" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedUrl ? 'Link Copiado!' : 'Copiar Link'}</span>
                   </button>
                 )}
@@ -143,8 +144,8 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
               {/* How to install on Android & iOS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 {/* Android */}
-                <div className="p-3.5 rounded-xl bg-[#202020] border border-white/5 space-y-2">
-                  <div className="font-bold text-[#1DB954] flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl bg-[#1c1926] border border-white/5 space-y-2">
+                  <div className="font-bold text-cyan-400 flex items-center gap-1.5">
                     <Smartphone className="w-4 h-4" />
                     <span>No Android (Chrome)</span>
                   </div>
@@ -157,8 +158,8 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </div>
 
                 {/* iPhone */}
-                <div className="p-3.5 rounded-xl bg-[#202020] border border-white/5 space-y-2">
-                  <div className="font-bold text-zinc-200 flex items-center gap-1.5">
+                <div className="p-3.5 rounded-xl bg-[#1c1926] border border-white/5 space-y-2">
+                  <div className="font-bold text-violet-300 flex items-center gap-1.5">
                     <Smartphone className="w-4 h-4" />
                     <span>No iPhone (Safari)</span>
                   </div>
@@ -172,7 +173,7 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
               </div>
 
               {/* App URL box */}
-              <div className="p-3 rounded-xl bg-[#141414] border border-white/5 flex items-center justify-between gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#121018] border border-white/5 flex items-center justify-between gap-3 text-xs">
                 <div className="truncate">
                   <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-bold">
                     Link Direto do App
@@ -183,9 +184,9 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </div>
                 <button
                   onClick={handleCopyUrl}
-                  className="px-3 py-1.5 rounded-lg bg-[#242424] hover:bg-[#2c2c2c] text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-[#242033] hover:bg-[#2d293f] text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer border border-violet-500/20"
                 >
-                  {copiedUrl ? <Check className="w-3.5 h-3.5 text-[#1DB954]" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedUrl ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedUrl ? 'Copiado' : 'Copiar'}</span>
                 </button>
               </div>
@@ -195,7 +196,7 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
           {/* Tab 2: Publish to Google Play Store */}
           {activeTab === 'playstore' && (
             <div className="space-y-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-[#1DB954]/30 text-zinc-300 leading-relaxed">
+              <div className="p-3.5 rounded-xl bg-violet-950/30 border border-violet-500/30 text-zinc-300 leading-relaxed">
                 <strong className="text-white font-bold block mb-1">
                   Sim! Você pode publicar exatamente este app na Google Play Store.
                 </strong>
@@ -218,8 +219,8 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </h5>
 
                 {/* Step 1 */}
-                <div className="p-3.5 rounded-xl bg-[#202020] border border-white/5 flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#1DB954] text-black font-extrabold flex items-center justify-center shrink-0 text-xs">
+                <div className="p-3.5 rounded-xl bg-[#1c1926] border border-white/5 flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white font-extrabold flex items-center justify-center shrink-0 text-xs">
                     1
                   </div>
                   <div className="space-y-1">
@@ -232,9 +233,9 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                     <div className="mt-2 flex items-center gap-2">
                       <button
                         onClick={handleCopyUrl}
-                        className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-[#272338] hover:bg-[#322d47] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-violet-500/20"
                       >
-                        {copiedUrl ? <Check className="w-3.5 h-3.5 text-[#1DB954]" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedUrl ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Copy className="w-3.5 h-3.5" />}
                         <span>Copiar URL Direta do App</span>
                       </button>
                     </div>
@@ -242,8 +243,8 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </div>
 
                 {/* Step 2 */}
-                <div className="p-3.5 rounded-xl bg-[#202020] border border-white/5 flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#1DB954] text-black font-extrabold flex items-center justify-center shrink-0 text-xs">
+                <div className="p-3.5 rounded-xl bg-[#1c1926] border border-white/5 flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white font-extrabold flex items-center justify-center shrink-0 text-xs">
                     2
                   </div>
                   <div className="space-y-1">
@@ -257,7 +258,7 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                       href="https://www.pwabuilder.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-[#1DB954] hover:underline font-semibold mt-1"
+                      className="inline-flex items-center gap-1.5 text-cyan-400 hover:underline font-semibold mt-1"
                     >
                       <span>Abrir PWABuilder.com</span>
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -266,8 +267,8 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
                 </div>
 
                 {/* Step 3 */}
-                <div className="p-3.5 rounded-xl bg-[#202020] border border-white/5 flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#1DB954] text-black font-extrabold flex items-center justify-center shrink-0 text-xs">
+                <div className="p-3.5 rounded-xl bg-[#1c1926] border border-white/5 flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white font-extrabold flex items-center justify-center shrink-0 text-xs">
                     3
                   </div>
                   <div className="space-y-1">
@@ -282,7 +283,7 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
               </div>
 
               {/* Requirements & Tips */}
-              <div className="p-3.5 rounded-xl bg-[#141414] border border-white/5 space-y-2">
+              <div className="p-3.5 rounded-xl bg-[#121018] border border-white/5 space-y-2">
                 <div className="flex items-center gap-1.5 text-amber-400 font-bold">
                   <ShieldCheck className="w-4 h-4" />
                   <span>Dicas Importantes para Aprovação na Play Store:</span>
@@ -304,13 +305,13 @@ export const PlayStoreModal: React.FC<PlayStoreModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10 bg-[#141414] flex items-center justify-between">
+        <div className="p-4 border-t border-white/10 bg-[#13111a] flex items-center justify-between">
           <span className="text-[11px] text-zinc-500">
             PWA configurado com Manifest, Service Worker e Ícones 512px
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-full bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-bold transition-all cursor-pointer"
+            className="px-4 py-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-violet-600/25"
           >
             Fechar
           </button>

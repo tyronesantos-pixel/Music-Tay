@@ -131,6 +131,8 @@ export function subscribeToCloudCollections(
             id: d.id,
             name: data.name || 'Nova Coleção',
             description: data.description || '',
+            category: data.category || 'all',
+            color: data.color || '',
             videoIds: Array.isArray(data.videoIds) ? data.videoIds : [],
             createdAt: data.createdAt || new Date().toISOString(),
             updatedAt: data.updatedAt || new Date().toISOString(),
@@ -159,8 +161,24 @@ export async function saveCollectionToCloud(collectionItem: YouTubeCollection): 
     id: collectionItem.id,
     name: collectionItem.name,
     description: collectionItem.description || '',
+    category: collectionItem.category || 'all',
+    color: collectionItem.color || '',
     videoIds: collectionItem.videoIds || [],
     createdAt: collectionItem.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Updates collection fields in the cloud database
+ */
+export async function updateCollectionInCloud(
+  collectionId: string,
+  updates: Partial<YouTubeCollection>
+): Promise<void> {
+  const docRef = doc(db, COLLECTIONS_COLLECTION, collectionId);
+  await updateDoc(docRef, {
+    ...updates,
     updatedAt: new Date().toISOString(),
   });
 }

@@ -15,6 +15,7 @@ import {
   updateVideoInCloud,
   subscribeToCloudCollections,
   saveCollectionToCloud,
+  updateCollectionInCloud,
   deleteCollectionFromCloud,
 } from '../services/cloudDatabase';
 
@@ -55,7 +56,16 @@ interface VideoLibraryContextType {
   setAutoSyncEnabled: (enabled: boolean) => void;
   setSyncIntervalMinutes: (mins: number) => void;
   setCategoryFilter: (cat: 'all' | 'musicas' | 'videoclipe' | 'games') => void;
-  createCollection: (name: string, description?: string) => Promise<YouTubeCollection>;
+  createCollection: (
+    name: string,
+    description?: string,
+    category?: 'all' | 'musicas' | 'videoclipe' | 'games',
+    color?: string
+  ) => Promise<YouTubeCollection>;
+  updateCollection: (
+    collectionId: string,
+    updates: Partial<YouTubeCollection>
+  ) => Promise<void>;
   deleteCollection: (id: string) => Promise<void>;
   addVideoToCollection: (collectionId: string, videoId: string) => Promise<void>;
   removeVideoFromCollection: (collectionId: string, videoId: string) => Promise<void>;
@@ -251,18 +261,35 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     await saveVideoToCloud(synced);
   }, [videos]);
 
-  const createCollection = useCallback(async (name: string, description?: string): Promise<YouTubeCollection> => {
-    const newCol: YouTubeCollection = {
-      id: `col_${Date.now()}`,
-      name,
-      description: description || '',
-      videoIds: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    await saveCollectionToCloud(newCol);
-    return newCol;
-  }, []);
+  const createCollection = useCallback(
+    async (
+      name: string,
+      description?: string,
+      category?: 'all' | 'musicas' | 'videoclipe' | 'games',
+      color?: string
+    ): Promise<YouTubeCollection> => {
+      const newCol: YouTubeCollection = {
+        id: `col_${Date.now()}`,
+        name,
+        description: description || '',
+        category: category || 'all',
+        color: color || '',
+        videoIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveCollectionToCloud(newCol);
+      return newCol;
+    },
+    []
+  );
+
+  const updateCollection = useCallback(
+    async (collectionId: string, updates: Partial<YouTubeCollection>) => {
+      await updateCollectionInCloud(collectionId, updates);
+    },
+    []
+  );
 
   const deleteCollection = useCallback(async (id: string) => {
     await deleteCollectionFromCloud(id);
@@ -389,6 +416,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setAutoSyncEnabled,
         setSyncIntervalMinutes,
         createCollection,
+        updateCollection,
         deleteCollection,
         addVideoToCollection,
         removeVideoFromCollection,

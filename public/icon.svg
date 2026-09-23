@@ -1,21 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#1ed760"/>
-      <stop offset="100%" stop-color="#121212"/>
-    </radialGradient>
-    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1DB954"/>
-      <stop offset="100%" stop-color="#108538"/>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b122c"/>
+      <stop offset="50%" stop-color="#120f1d"/>
+      <stop offset="100%" stop-color="#09080e"/>
     </linearGradient>
+    <linearGradient id="prismGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
-  <!-- Background Circle / Squircle -->
-  <rect width="512" height="512" rx="128" fill="#121212"/>
-  <circle cx="256" cy="256" r="210" fill="url(#brandGrad)" />
+
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
   
-  <!-- Spotify Wave Sound Symbol -->
-  <g fill="#121212" transform="translate(256, 256) scale(1.15) translate(-12, -12)">
-    <!-- Wave 1 (Top) -->
-    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+  <!-- Outer subtle glowing ring -->
+  <circle cx="256" cy="256" r="215" fill="none" stroke="url(#prismGrad)" stroke-width="4" opacity="0.35"/>
+
+  <!-- Glowing Emblem -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="256" r="170" fill="url(#prismGrad)"/>
+  </g>
+
+  <!-- Inner core -->
+  <circle cx="256" cy="256" r="162" fill="#13101b" opacity="0.3"/>
+
+  <!-- Play & Equalizer Dynamic Waveform -->
+  <g fill="url(#barGrad)">
+    <!-- Play arrow stylized -->
+    <path d="M 215 160 L 335 256 L 215 352 Z" fill="#ffffff" opacity="0.95"/>
+    
+    <!-- Sound Waves on right -->
+    <rect x="360" y="216" width="14" height="80" rx="7" fill="#22d3ee"/>
+    <rect x="388" y="236" width="14" height="40" rx="7" fill="#67e8f9"/>
+    
+    <!-- Rhythm Bar on left -->
+    <rect x="176" y="226" width="14" height="60" rx="7" fill="#a78bfa"/>
+    <rect x="148" y="244" width="14" height="24" rx="7" fill="#c4b5fd"/>
   </g>
 </svg>

@@ -51,11 +51,11 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
       {/* Top Header: Clock & Battery saver notice */}
       <div className="flex items-center justify-between opacity-50 text-xs">
         <div className="flex items-center gap-2">
-          <Moon className="w-4 h-4 text-[#1DB954]" />
+          <Moon className="w-4 h-4 text-cyan-400" />
           <span className="font-mono text-sm">{currentTimeStr}</span>
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-          <Lock className="w-3.5 h-3.5 text-[#1DB954]" />
+          <Lock className="w-3.5 h-3.5 text-violet-400" />
           <span>Toques Bloqueados</span>
         </div>
       </div>
@@ -64,10 +64,10 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
       <div className="flex flex-col items-center text-center my-auto px-4 max-w-sm mx-auto">
         {/* Equalizer indicator */}
         <div className="flex items-end gap-1 h-6 mb-4">
-          <span className="w-1 bg-[#1DB954] rounded-full h-3 animate-pulse" />
-          <span className="w-1 bg-[#1DB954] rounded-full h-6 animate-pulse delay-75" />
-          <span className="w-1 bg-[#1DB954] rounded-full h-4 animate-pulse delay-150" />
-          <span className="w-1 bg-[#1DB954] rounded-full h-5 animate-pulse delay-200" />
+          <span className="w-1 bg-violet-400 rounded-full h-3 animate-pulse" />
+          <span className="w-1 bg-cyan-400 rounded-full h-6 animate-pulse delay-75" />
+          <span className="w-1 bg-indigo-400 rounded-full h-4 animate-pulse delay-150" />
+          <span className="w-1 bg-cyan-400 rounded-full h-5 animate-pulse delay-200" />
         </div>
 
         <h2 className="text-sm font-semibold text-zinc-300 line-clamp-2 mb-1">
@@ -87,7 +87,7 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
               if (isPlaying) pause();
               else resume();
             }}
-            className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 hover:border-[#1DB954] flex items-center justify-center text-white hover:text-[#1DB954] transition-colors"
+            className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 hover:border-violet-500 flex items-center justify-center text-white hover:text-cyan-400 transition-colors cursor-pointer"
           >
             {isPlaying ? (
               <Pause className="w-6 h-6 fill-current" />
@@ -98,7 +98,7 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
 
           <button
             onClick={nextVideo}
-            className="w-11 h-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+            className="w-11 h-11 rounded-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
             title="Próxima Música"
           >
             <SkipForward className="w-5 h-5" />
@@ -107,7 +107,7 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
 
         {/* Double-tap hint */}
         <div className="mt-8 py-2 px-4 rounded-full bg-zinc-950/80 border border-zinc-900 text-zinc-400 text-xs flex items-center gap-2">
-          <Smartphone className="w-3.5 h-3.5 text-[#1DB954]" />
+          <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
           <span>
             {tapCount === 1 ? 'Toque mais 1x para desbloquear' : 'Toque 2x em qualquer lugar para sair'}
           </span>

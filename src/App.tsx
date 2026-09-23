@@ -114,7 +114,10 @@ const MainLayout: React.FC = () => {
       </div>
 
       {/* Floating Audio Icon with Explodir Button & Pocket Mode (No image/video blocking the screen!) */}
-      <FloatingAudioIcon onOpenPocketMode={() => setIsPocketModeOpen(true)} />
+      <FloatingAudioIcon
+        isPocketMode={isPocketModeOpen}
+        onOpenPocketMode={() => setIsPocketModeOpen(true)}
+      />
 
       {/* Mobile Bottom Navigation (Spotify style) */}
       <MobileBottomNav

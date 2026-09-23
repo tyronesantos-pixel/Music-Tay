@@ -40,17 +40,17 @@ export const MiniPlayer: React.FC = () => {
       {/* Mini Details Bar */}
       <div
         onClick={() => setCurrentView('watch')}
-        className="p-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-[#242424] transition-colors"
+        className="p-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-[#1f1b2b] transition-colors"
       >
         <div className="overflow-hidden">
           <h4 className="text-xs font-semibold text-white truncate">{currentVideo.title}</h4>
           <p className="text-[10px] text-zinc-400 truncate flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             <span>{currentVideo.channelTitle}</span>
           </p>
         </div>
 
-        <div className="text-[10px] font-mono text-[#1DB954] shrink-0 font-bold">
+        <div className="text-[10px] font-mono text-cyan-400 shrink-0 font-bold">
           ● Tocando
         </div>
       </div>

@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
-import { Layers, X, Search, Check, Plus, Music } from 'lucide-react';
+import { Layers, X, Plus, Check, Search, Music } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { YouTubeCollection } from '../../services/youtubeService';
 
 interface AddSongsToPlaylistModalProps {
   isOpen: boolean;
   onClose: () => void;
-  playlistId: string;
+  collection: YouTubeCollection;
 }
 
 export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = ({
   isOpen,
   onClose,
-  playlistId,
+  collection,
 }) => {
-  const { videos, collections, addMultipleVideosToCollection } = useVideoLibrary();
-  const [filterQuery, setFilterQuery] = useState('');
+  const { videos, addMultipleVideosToCollection, collections } = useVideoLibrary();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [filterQuery, setFilterQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const currentPlaylist = collections.find((c) => c.id === playlistId);
+  // Retrieve current active collection state
+  const currentPlaylist = collections.find((c) => c.id === collection?.id) || collection;
   const alreadyInPlaylist = new Set(currentPlaylist?.videoIds || []);
 
-  // Filter available songs
   const filteredVideos = videos.filter((v) => {
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
@@ -36,14 +37,14 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
   const handleAddSelected = async () => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0 || !currentPlaylist) return;
     setIsSubmitting(true);
-    await addMultipleVideosToCollection(playlistId, selectedIds);
+    await addMultipleVideosToCollection(currentPlaylist.id, selectedIds);
     setIsSubmitting(false);
     setSelectedIds([]);
     onClose();
@@ -51,11 +52,11 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-      <div className="relative w-full max-w-lg bg-[#181818] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-lg bg-[#16141f] border border-violet-500/20 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#121212]">
+        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#13111a]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-400 flex items-center justify-center">
               <Layers className="w-4 h-4" />
             </div>
             <div>
@@ -70,14 +71,14 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="p-3 border-b border-white/5 bg-[#141414]">
+        <div className="p-3 border-b border-white/5 bg-[#0f0d14]">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5" />
             <input
@@ -85,7 +86,7 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
               placeholder="Buscar músicas já adicionadas na biblioteca..."
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-[#1DB954]"
+              className="w-full bg-[#1b1825] border border-white/10 rounded-xl pl-8.5 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-violet-500"
             />
           </div>
         </div>
@@ -111,10 +112,10 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
                   }}
                   className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
                     isInPlaylist
-                      ? 'bg-[#121212]/60 border-white/5 opacity-50 cursor-not-allowed'
+                      ? 'bg-[#121018]/60 border-white/5 opacity-50 cursor-not-allowed'
                       : isSelected
-                      ? 'bg-[#1DB954]/15 border-[#1DB954]/50 cursor-pointer'
-                      : 'bg-[#141414] hover:bg-[#1f1f1f] border-white/5 cursor-pointer'
+                      ? 'bg-violet-600/15 border-violet-500/50 cursor-pointer shadow-sm'
+                      : 'bg-[#1b1825] hover:bg-[#221f2f] border-white/5 cursor-pointer'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -144,7 +145,7 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
                       <div
                         className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
                           isSelected
-                            ? 'bg-[#1DB954] border-[#1DB954] text-black font-bold'
+                            ? 'bg-gradient-to-r from-violet-600 to-cyan-500 border-violet-400 text-white font-bold'
                             : 'border-white/20 bg-zinc-900'
                         }`}
                       >
@@ -159,7 +160,7 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 border-t border-white/10 bg-[#121212] flex items-center justify-between">
+        <div className="p-3.5 border-t border-white/10 bg-[#13111a] flex items-center justify-between">
           <span className="text-xs text-zinc-400">
             {selectedIds.length} selecionada(s)
           </span>
@@ -167,14 +168,14 @@ export const AddSongsToPlaylistModal: React.FC<AddSongsToPlaylistModalProps> = (
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-full bg-[#242424] hover:bg-[#2e2e2e] text-white text-xs font-semibold"
+              className="px-3.5 py-1.5 rounded-full bg-[#221f2d] hover:bg-[#2b273a] text-white text-xs font-semibold cursor-pointer"
             >
               Cancelar
             </button>
             <button
               onClick={handleAddSelected}
               disabled={selectedIds.length === 0 || isSubmitting}
-              className="px-4 py-1.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] disabled:opacity-40 text-black text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 disabled:opacity-40 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-violet-600/25"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Adicionar à Playlist</span>

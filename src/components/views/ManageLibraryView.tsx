@@ -52,6 +52,7 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editCategory, setEditCategory] = useState<'all' | 'musicas' | 'videoclipe' | 'games'>('all');
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const filteredVideos = videos.filter((v) => {
@@ -97,10 +98,24 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
     setEditingId(v.id);
     setEditTitle(v.title);
     setEditNotes(v.notes || '');
+    setEditCategory(v.category || 'all');
   };
 
-  const saveEdit = async (id: string) => {
-    await updateVideo(id, { title: editTitle, notes: editNotes });
+  const saveEdit = async (id: string, originalTags: string[] = []) => {
+    let updatedTags = [...originalTags];
+    if (editCategory === 'videoclipe' && !updatedTags.includes('clipe')) {
+      updatedTags.push('clipe');
+    } else if (editCategory === 'musicas' && !updatedTags.includes('musica')) {
+      updatedTags.push('musica');
+    } else if (editCategory === 'games' && !updatedTags.includes('games')) {
+      updatedTags.push('games');
+    }
+    await updateVideo(id, {
+      title: editTitle,
+      notes: editNotes,
+      category: editCategory,
+      tags: updatedTags,
+    });
     setEditingId(null);
   };
 
@@ -266,24 +281,50 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
                   {/* Text details or edit form */}
                   <div className="flex-1 min-w-0">
                     {isEditing ? (
-                      <div className="flex flex-col gap-1.5 w-full">
+                      <div className="flex flex-col gap-2 w-full p-2 rounded-xl bg-[#14121d] border border-violet-500/30">
                         <input
                           type="text"
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          className="w-full bg-[#121212] border border-[#1DB954] rounded px-2 py-1 text-xs text-white outline-none"
+                          className="w-full bg-[#0f0d14] border border-violet-500/40 focus:border-violet-400 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none"
+                          placeholder="Título do vídeo..."
                         />
-                        <div className="flex items-center gap-2">
+                        {/* Category selection */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-zinc-400 font-semibold mr-1">Categoria:</span>
+                          {(
+                            [
+                              { id: 'videoclipe', label: '🎬 Videoclipe' },
+                              { id: 'musicas', label: '🎵 Músicas' },
+                              { id: 'games', label: '🎮 Games' },
+                              { id: 'all', label: '🌌 Misto' },
+                            ] as const
+                          ).map((cat) => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setEditCategory(cat.id)}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                                editCategory === cat.id
+                                  ? 'bg-violet-600 border-violet-400 text-white shadow-sm'
+                                  : 'bg-[#1e1b29] border-white/5 text-zinc-400 hover:text-white'
+                              }`}
+                            >
+                              {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
                           <button
-                            onClick={() => saveEdit(video.id)}
-                            className="px-2 py-0.5 rounded bg-[#1DB954] text-black text-[11px] font-bold flex items-center gap-1"
+                            onClick={() => saveEdit(video.id, video.tags)}
+                            className="px-3 py-1 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-[11px] font-bold flex items-center gap-1 shadow-md shadow-violet-600/25 cursor-pointer"
                           >
                             <Check className="w-3 h-3" />
                             <span>Salvar na Nuvem</span>
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 text-[11px] flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] flex items-center gap-1 cursor-pointer"
                           >
                             <X className="w-3 h-3" />
                             <span>Cancelar</span>

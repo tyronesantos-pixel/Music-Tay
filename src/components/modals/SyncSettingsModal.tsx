@@ -67,7 +67,7 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#121212]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30 flex items-center justify-center">
               <Cloud className="w-4 h-4" />
             </div>
             <div>
@@ -82,7 +82,7 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -91,12 +91,12 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
         {/* Modal Body */}
         <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[75vh]">
           {/* Status Live Banner */}
-          <div className="p-3.5 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/25 flex items-center justify-between gap-3">
+          <div className="p-3.5 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Cloud className="w-5 h-5 text-[#1DB954] shrink-0" />
+              <Cloud className="w-5 h-5 text-cyan-400 shrink-0" />
               <div>
-                <span className="text-xs font-bold text-[#1DB954] flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse" />
+                <span className="text-xs font-bold text-violet-300 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                   Nuvem Conectada em Tempo Real
                 </span>
                 <p className="text-[11px] text-zinc-300">
@@ -108,7 +108,7 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
             <button
               onClick={() => syncAllVideos()}
               disabled={isSyncing}
-              className="px-3 py-1.5 rounded-full bg-[#1DB954] hover:bg-[#1ed760] disabled:opacity-50 text-black text-xs font-bold transition-all shrink-0 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 disabled:opacity-50 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md shadow-violet-600/25"
             >
               {isSyncing ? 'Atualizando...' : 'Atualizar'}
             </button>
@@ -134,8 +134,8 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
             </div>
             <button
               onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${
-                autoSyncEnabled ? 'bg-[#1DB954]' : 'bg-zinc-800'
+              className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                autoSyncEnabled ? 'bg-violet-600' : 'bg-zinc-800'
               }`}
             >
               <div
@@ -153,7 +153,7 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
             </span>
 
             {importSuccess && (
-              <div className="p-2.5 rounded-xl bg-[#1DB954]/20 border border-[#1DB954]/30 text-[#1DB954] text-xs flex items-center gap-2">
+              <div className="p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
                 <span>{importSuccess}</span>
               </div>
@@ -162,17 +162,17 @@ export const SyncSettingsModal: React.FC<SyncSettingsModalProps> = ({ isOpen, on
             <div className="flex items-center gap-2">
               <button
                 onClick={exportLibrary}
-                className="flex-1 py-2 px-3 rounded-xl bg-[#242424] hover:bg-[#2e2e2e] text-xs font-semibold text-zinc-200 hover:text-white transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 px-3 rounded-xl bg-[#242424] hover:bg-[#2e2e2e] text-xs font-semibold text-zinc-200 hover:text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5 text-[#1DB954]" />
+                <Download className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Exportar JSON</span>
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 py-2 px-3 rounded-xl bg-[#242424] hover:bg-[#2e2e2e] text-xs font-semibold text-zinc-200 hover:text-white transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 px-3 rounded-xl bg-[#242424] hover:bg-[#2e2e2e] text-xs font-semibold text-zinc-200 hover:text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Upload className="w-3.5 h-3.5 text-[#1DB954]" />
+                <Upload className="w-3.5 h-3.5 text-violet-400" />
                 <span>Importar JSON</span>
               </button>
 
