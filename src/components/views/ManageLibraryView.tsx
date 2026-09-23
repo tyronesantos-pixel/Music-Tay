@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface ManageLibraryViewProps {
   onOpenAddModal: () => void;
@@ -51,6 +52,19 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [savedFeedbackId, setSavedFeedbackId] = useState<string | null>(null);
 
+  // Modal confirmation state
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: async () => {},
+  });
+
   const filteredVideos = videos.filter((v) => {
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
@@ -76,19 +90,40 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
-    if (confirm(`Remover os ${selectedIds.length} vídeos selecionados do banco em nuvem?`)) {
-      await bulkDeleteVideos(selectedIds);
-      setSelectedIds([]);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Excluir Vídeos Selecionados',
+      message: `Tem certeza de que deseja remover os ${selectedIds.length} vídeos selecionados da sua biblioteca na nuvem?`,
+      action: async () => {
+        await bulkDeleteVideos(selectedIds);
+        setSelectedIds([]);
+      },
+    });
   };
 
-  const handleClearAll = async () => {
-    if (confirm('Tem certeza de que deseja limpar TODOS os vídeos da nuvem? Esta ação não pode ser desfeita.')) {
-      await clearAllVideos();
-      setSelectedIds([]);
-    }
+  const handleClearAll = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Limpar Todos os Vídeos',
+      message: 'Tem certeza de que deseja limpar TODOS os vídeos da sua biblioteca na nuvem? Esta ação não pode ser desfeita.',
+      action: async () => {
+        await clearAllVideos();
+        setSelectedIds([]);
+      },
+    });
+  };
+
+  const promptDeleteVideo = (video: typeof videos[0]) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Excluir Vídeo da Biblioteca',
+      message: `Tem certeza de que deseja remover "${video.title}" da sua biblioteca na nuvem?`,
+      action: async () => {
+        await deleteVideo(video.id);
+      },
+    });
   };
 
   const startEdit = (v: typeof videos[0]) => {
@@ -253,11 +288,11 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
         <div className="bg-[#16141f] border border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
           <Youtube className="w-12 h-12 text-zinc-700 mb-3" />
           <h3 className="text-base font-bold text-white mb-1">
-            {videos.length === 0 ? 'O banco de dados em nuvem está vazio' : 'Nenhum vídeo com esse filtro'}
+            {videos.length === 0 ? 'Sua biblioteca em nuvem está vazia' : 'Nenhum vídeo com esse filtro'}
           </h3>
           <p className="text-xs text-zinc-400 max-w-sm mb-4">
             {videos.length === 0
-              ? 'Cole o link de qualquer vídeo ou Short do YouTube. Ele será gravado na nuvem e ficará disponível para todos.'
+              ? 'Cole o link de qualquer vídeo ou Short do YouTube. Ele será gravado na sua conta na nuvem e ficará salvo exclusivamente para você.'
               : 'Tente outro termo de busca.'}
           </p>
           {videos.length === 0 && (
@@ -468,11 +503,7 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
 
                   {/* Delete */}
                   <button
-                    onClick={() => {
-                      if (confirm(`Remover "${video.title}" da nuvem?`)) {
-                        deleteVideo(video.id);
-                      }
-                    }}
+                    onClick={() => promptDeleteVideo(video)}
                     title="Excluir da Nuvem"
                     className="p-2 rounded-lg bg-[#201c2b] hover:bg-rose-950 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer border border-white/5"
                   >
@@ -484,6 +515,16 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
           })}
         </div>
       )}
+
+      {/* In-App Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.action}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel="Sim, Excluir"
+      />
     </div>
   );
 };

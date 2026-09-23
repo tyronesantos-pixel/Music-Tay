@@ -3,6 +3,7 @@ import { Play, Heart, FolderPlus, ExternalLink, Trash2, RefreshCw } from 'lucide
 import { YouTubeVideo, formatDuration } from '../../services/youtubeService';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface VideoCardProps {
   video: YouTubeVideo;
@@ -21,6 +22,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const { openVideoView, deleteVideo, syncVideoById } = useVideoLibrary();
   const [isHovered, setIsHovered] = useState(false);
   const [isSyncingThis, setIsSyncingThis] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const isCurrent = currentVideo?.id === video.id;
   const isLiked = likedVideoIds.has(video.id);
@@ -38,9 +40,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Remover "${video.title}" da sua biblioteca?`)) {
-      deleteVideo(video.id);
-    }
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteVideo(video.id);
   };
 
   const handleSyncClick = async (e: React.MouseEvent) => {
@@ -51,126 +55,154 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   };
 
   return (
-    <div
-      onClick={handlePlayClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="group relative flex flex-col bg-[#181622] hover:bg-[#221e30] p-3 rounded-2xl overflow-hidden border border-white/5 hover:border-violet-500/30 transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl"
-    >
-      {/* Thumbnail */}
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
-        <img
-          src={video.thumbnailUrl}
-          alt={video.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
+    <>
+      <div
+        onClick={handlePlayClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="group relative flex flex-col bg-[#181622] hover:bg-[#221e30] p-3 rounded-2xl overflow-hidden border border-white/5 hover:border-violet-500/30 transition-all duration-200 cursor-pointer shadow-md hover:shadow-xl"
+      >
+        {/* Thumbnail */}
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-black shadow-inner">
+          <img
+            src={video.thumbnailUrl}
+            alt={video.title}
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
 
-        {video.duration > 0 && (
-          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm text-white text-[10px] font-mono font-medium">
-            {formatDuration(video.duration)}
+          {/* Playing indicator */}
+          {isCurrent && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500 text-black font-extrabold text-[10px] shadow-lg animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-black" />
+              <span>{isPlaying ? 'TOCANDO' : 'PAUSADO'}</span>
+            </div>
+          )}
+
+          {/* Short badge */}
+          {video.isShort && (
+            <div className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-amber-500 text-black font-extrabold text-[9px] uppercase shadow-md">
+              Short
+            </div>
+          )}
+
+          {/* Duration */}
+          {video.duration > 0 && !video.isShort && (
+            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-white backdrop-blur-sm">
+              {formatDuration(video.duration)}
+            </div>
+          )}
+
+          {/* Center Play Button on hover */}
+          <div
+            className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className="w-11 h-11 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 flex items-center justify-center text-white shadow-xl shadow-violet-600/40 transform group-hover:scale-110 transition-transform">
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            </div>
           </div>
-        )}
 
-        {/* Play Button floating on bottom-right of thumbnail */}
-        <div
-          className={`absolute bottom-2 right-2 transition-all duration-200 ${
-            isHovered || (isCurrent && isPlaying)
-              ? 'opacity-100 translate-y-0 scale-100'
-              : 'opacity-90 sm:opacity-0 translate-y-0 sm:translate-y-2 scale-100 sm:scale-90'
-          }`}
-        >
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white flex items-center justify-center shadow-xl shadow-black/80 transform hover:scale-105 active:scale-95 transition-transform">
-            {isCurrent && isPlaying ? (
-              <span className="w-3 h-3 bg-white rounded-xs animate-pulse" />
-            ) : (
-              <Play className="w-4 h-4 fill-current ml-0.5" />
+          {/* Quick Overlay Action Bar */}
+          <div
+            className={`absolute bottom-2 left-2 flex items-center gap-1 transition-opacity duration-200 ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {/* Like */}
+            <button
+              onClick={handleLikeClick}
+              title={isLiked ? 'Remover dos favoritos' : 'Curtir'}
+              className={`p-1.5 rounded-full backdrop-blur-md transition-colors cursor-pointer active:scale-90 ${
+                isLiked
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-black/75 hover:bg-black text-zinc-300 hover:text-white'
+              }`}
+            >
+              <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
+            </button>
+
+            {/* Add to playlist */}
+            {onOpenCollectionModal && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCollectionModal(video.id);
+                }}
+                title="Adicionar à Playlist"
+                className="p-1.5 rounded-full bg-black/75 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer active:scale-90"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Sync live metadata from YouTube */}
+            <button
+              onClick={handleSyncClick}
+              title="Atualizar título e imagem do YouTube"
+              className="p-1.5 rounded-full bg-black/75 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer active:scale-90"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingThis ? 'animate-spin text-cyan-400' : ''}`} />
+            </button>
+
+            {/* Delete button with guaranteed custom modal confirmation */}
+            {showDelete && (
+              <button
+                onClick={handleDeleteClick}
+                title="Excluir Vídeo da Biblioteca"
+                className="p-1.5 rounded-full bg-black/75 hover:bg-rose-600 text-zinc-300 hover:text-white backdrop-blur-md transition-colors cursor-pointer active:scale-90"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
         </div>
 
-        {/* Quick Actions (top right) - visible on mobile, hover on desktop */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-          {/* Add to Playlist */}
-          {onOpenCollectionModal && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenCollectionModal(video.id);
-              }}
-              title="Adicionar à Playlist"
-              className="p-1.5 rounded-full bg-black/75 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer active:scale-90"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Like */}
-          <button
-            onClick={handleLikeClick}
-            title={isLiked ? 'Descurtir' : 'Curtir'}
-            className={`p-1.5 rounded-full backdrop-blur-md transition-colors cursor-pointer active:scale-90 ${
-              isLiked ? 'bg-rose-600 text-white shadow-sm' : 'bg-black/75 text-zinc-300 hover:text-white'
-            }`}
-          >
-            <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-          </button>
-
-          {/* Sync Video Data */}
-          <button
-            onClick={handleSyncClick}
-            title="Atualizar dados deste vídeo"
-            className="p-1.5 rounded-full bg-black/75 hover:bg-black text-zinc-300 hover:text-cyan-400 backdrop-blur-md transition-colors cursor-pointer active:scale-90"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingThis ? 'animate-spin text-cyan-400' : ''}`} />
-          </button>
-
-          {/* Delete */}
-          {showDelete && (
-            <button
-              onClick={handleDeleteClick}
-              title="Remover Vídeo"
-              className="p-1.5 rounded-full bg-black/75 hover:bg-rose-600 text-zinc-300 hover:text-white backdrop-blur-md transition-colors cursor-pointer active:scale-90"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Info Section */}
-      <div className="pt-2.5 flex flex-col gap-1 flex-1 justify-between">
-        <div>
-          <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-violet-300 transition-colors leading-snug">
-            {video.title}
-          </h3>
-          <p className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
-            {video.channelTitle}
-          </p>
-        </div>
-
-        {/* Tags */}
-        <div className="flex items-center justify-between pt-1 text-[10px] text-zinc-500">
-          <div className="flex items-center gap-1 truncate">
-            {video.tags.slice(0, 2).map((tag, idx) => (
-              <span key={idx} className="text-zinc-400">
-                #{tag}
-              </span>
-            ))}
+        {/* Info Section */}
+        <div className="pt-2.5 flex flex-col gap-1 flex-1 justify-between">
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-2 group-hover:text-violet-300 transition-colors leading-snug">
+              {video.title}
+            </h3>
+            <p className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
+              {video.channelTitle}
+            </p>
           </div>
 
-          <a
-            href={video.youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            title="Abrir no YouTube"
-            className="text-zinc-500 hover:text-cyan-400 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3" />
-          </a>
+          {/* Tags */}
+          <div className="flex items-center justify-between pt-1 text-[10px] text-zinc-500">
+            <div className="flex items-center gap-1 truncate">
+              {video.tags.slice(0, 2).map((tag, idx) => (
+                <span key={idx} className="text-zinc-400">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+
+            <a
+              href={video.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 text-zinc-400 hover:text-rose-400 transition-colors"
+              title="Abrir no YouTube"
+            >
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Guaranteed In-App Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir Vídeo"
+        message={`Tem certeza que deseja remover "${video.title}" da sua biblioteca? Esta alteração será sincronizada na sua nuvem.`}
+        confirmLabel="Sim, Excluir"
+      />
+    </>
   );
 };

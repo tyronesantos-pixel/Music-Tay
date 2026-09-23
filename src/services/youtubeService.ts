@@ -27,6 +27,7 @@ export interface YouTubeVideo {
   status: 'active' | 'unavailable';
   notes?: string;
   category?: 'all' | 'musicas' | 'videoclipe' | 'games';
+  userId?: string;
 }
 
 export interface YouTubeCollection {
@@ -36,6 +37,7 @@ export interface YouTubeCollection {
   category?: 'all' | 'musicas' | 'videoclipe' | 'games';
   color?: string;
   videoIds: string[];
+  userId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,7 +60,8 @@ export type YouTubeViewMode =
   | 'collection'
   | 'liked'
   | 'history'
-  | 'manage';
+  | 'manage'
+  | 'admin';
 
 /**
  * Extracts YouTube video ID, short status, playlist ID, or channel from URL or input string

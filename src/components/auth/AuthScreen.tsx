@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowRight,
+  Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PlayerLogo } from '../common/PlayerLogo';
@@ -24,18 +26,24 @@ export const AuthScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setPendingNotice(null);
     setIsSubmitting(true);
 
     try {
       if (mode === 'login') {
         const result = await login(emailOrUser, password);
         if (!result.success) {
-          setError(result.error || 'Erro ao entrar. Verifique seus dados.');
+          if (result.pendingApproval) {
+            setPendingNotice(result.error || 'Seu cadastro está aguardando liberação do administrador.');
+          } else {
+            setError(result.error || 'Erro ao entrar. Verifique seus dados.');
+          }
         }
       } else {
         if (password !== confirmPassword) {
@@ -47,6 +55,11 @@ export const AuthScreen: React.FC = () => {
         const result = await register(name, emailOrUser, password);
         if (!result.success) {
           setError(result.error || 'Erro ao criar conta.');
+        } else if (result.pendingApproval) {
+          setPendingNotice(
+            'Conta criada com sucesso! Solicitação enviada. Assim que o administrador liberar seu acesso, você poderá fazer login normalmente.'
+          );
+          setMode('login');
         }
       }
     } catch (err: any) {
@@ -86,6 +99,7 @@ export const AuthScreen: React.FC = () => {
               onClick={() => {
                 setMode('login');
                 setError(null);
+                setPendingNotice(null);
               }}
               className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 mode === 'login'
@@ -101,6 +115,7 @@ export const AuthScreen: React.FC = () => {
               onClick={() => {
                 setMode('register');
                 setError(null);
+                setPendingNotice(null);
               }}
               className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 mode === 'register'
@@ -128,7 +143,7 @@ export const AuthScreen: React.FC = () => {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex: Tyrone Santos"
+                    placeholder="Ex: João Silva"
                     className="w-full bg-[#0d0b14] border border-white/10 focus:border-violet-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-colors"
                   />
                 </div>
@@ -147,7 +162,7 @@ export const AuthScreen: React.FC = () => {
                   required
                   value={emailOrUser}
                   onChange={(e) => setEmailOrUser(e.target.value)}
-                  placeholder={mode === 'register' ? 'seuemail@exemplo.com ou seu.usuario' : 'Digite seu usuário ou email'}
+                  placeholder={mode === 'register' ? 'seuemail@exemplo.com ou seu.usuario' : 'Digite seu email ou usuário'}
                   className="w-full bg-[#0d0b14] border border-white/10 focus:border-violet-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-colors"
                 />
               </div>
@@ -165,7 +180,7 @@ export const AuthScreen: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo de 4 caracteres"
+                  placeholder="Sua senha"
                   className="w-full bg-[#0d0b14] border border-white/10 focus:border-violet-500 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-colors"
                 />
                 <button
@@ -199,6 +214,14 @@ export const AuthScreen: React.FC = () => {
               </div>
             )}
 
+            {/* Pending Notice Message */}
+            {pendingNotice && (
+              <div className="p-3.5 rounded-2xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{pendingNotice}</span>
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
               <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2 animate-in fade-in duration-150">
@@ -222,7 +245,7 @@ export const AuthScreen: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span>Criar Conta & Acessar</span>
+                  <span>Solicitar Acesso</span>
                   <Sparkles className="w-4 h-4 fill-current" />
                 </>
               )}
@@ -240,6 +263,7 @@ export const AuthScreen: React.FC = () => {
                     onClick={() => {
                       setMode('register');
                       setError(null);
+                      setPendingNotice(null);
                     }}
                     className="text-cyan-400 hover:underline font-bold cursor-pointer"
                   >
@@ -254,6 +278,7 @@ export const AuthScreen: React.FC = () => {
                     onClick={() => {
                       setMode('login');
                       setError(null);
+                      setPendingNotice(null);
                     }}
                     className="text-violet-400 hover:underline font-bold cursor-pointer"
                   >

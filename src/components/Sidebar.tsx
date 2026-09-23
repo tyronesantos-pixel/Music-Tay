@@ -11,6 +11,7 @@ import {
   Smartphone,
   User,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
 import { useAuth } from '../context/AuthContext';
@@ -20,12 +21,14 @@ interface SidebarProps {
   onOpenAddModal: () => void;
   onCreateCollectionModal: () => void;
   onOpenPlayStoreModal?: () => void;
+  onOpenAdminModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAddModal,
   onCreateCollectionModal,
   onOpenPlayStoreModal,
+  onOpenAdminModal,
 }) => {
   const {
     currentView,
@@ -36,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     videos,
   } = useVideoLibrary();
 
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const mainNavItems = [
     {
@@ -160,7 +163,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {user && (
           <div className="p-2 rounded-xl bg-[#1a1724] border border-violet-500/20 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+              <div
+                className={`w-7 h-7 rounded-full text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm ${
+                  isAdmin
+                    ? 'bg-gradient-to-br from-amber-500 to-violet-600 ring-2 ring-amber-400/50'
+                    : 'bg-gradient-to-br from-violet-600 to-cyan-500'
+                }`}
+              >
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="truncate">
@@ -180,6 +189,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
+        )}
+
+        {/* Admin Master Panel Button (Strictly for Admin) */}
+        {isAdmin && onOpenAdminModal && (
+          <button
+            onClick={onOpenAdminModal}
+            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-violet-600/30 hover:from-amber-500/30 hover:to-violet-600/40 border border-amber-500/40 text-xs font-bold text-amber-300 hover:text-white flex items-center justify-between transition-all group cursor-pointer shadow-md shadow-amber-500/10 active:scale-98"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Painel Admin</span>
+            </div>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.5 rounded-full border border-amber-500/40">
+              Liberar
+            </span>
+          </button>
         )}
 
         {/* Play Store button */}

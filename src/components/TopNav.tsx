@@ -10,6 +10,7 @@ import {
   Sparkles,
   LogOut,
   User,
+  ShieldCheck,
 } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +22,7 @@ interface TopNavProps {
   onOpenPlaylistsModal?: () => void;
   onOpenGuideModal?: () => void;
   onOpenPlayStoreModal?: () => void;
+  onOpenAdminModal?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -29,6 +31,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenPlaylistsModal,
   onOpenGuideModal,
   onOpenPlayStoreModal,
+  onOpenAdminModal,
 }) => {
   const {
     currentView,
@@ -41,7 +44,7 @@ export const TopNav: React.FC<TopNavProps> = ({
     setCategoryFilter,
   } = useVideoLibrary();
 
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const filterCategories: Array<{
     label: string;
@@ -168,12 +171,28 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span>Adicionar</span>
           </button>
 
+          {/* Admin Management Button (ONLY VISIBLE WHEN LOGGED IN AS ADMIN) */}
+          {isAdmin && onOpenAdminModal && (
+            <button
+              onClick={onOpenAdminModal}
+              className="px-2.5 sm:px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-violet-600/30 hover:from-amber-500/30 hover:to-violet-600/40 text-amber-300 hover:text-white border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/10 cursor-pointer active:scale-95"
+              title="Painel Administrativo: Liberar Usuários e Senhas"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Admin</span>
+            </button>
+          )}
+
           {/* User Profile & Logout */}
           {user && (
             <div className="flex items-center gap-1 sm:gap-1.5 pl-1 border-l border-white/10">
               <div
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-white text-[11px] sm:text-xs font-extrabold flex items-center justify-center shadow-sm cursor-default shrink-0"
-                title={`Logado como: ${user.name} (${user.email})`}
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white text-[11px] sm:text-xs font-extrabold flex items-center justify-center shadow-sm cursor-default shrink-0 ${
+                  isAdmin
+                    ? 'bg-gradient-to-br from-amber-500 to-violet-600 ring-2 ring-amber-400/50'
+                    : 'bg-gradient-to-br from-violet-600 to-cyan-500'
+                }`}
+                title={`Logado como: ${user.name} (${user.email}) ${isAdmin ? '★ Administrador' : ''}`}
               >
                 {user.name.charAt(0).toUpperCase()}
               </div>

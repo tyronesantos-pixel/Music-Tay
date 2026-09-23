@@ -20,6 +20,7 @@ import { PlaylistsDropdownModal } from './components/modals/PlaylistsDropdownMod
 import { PocketModeOverlay } from './components/player/PocketModeOverlay';
 import { BackgroundPlayGuideModal } from './components/modals/BackgroundPlayGuideModal';
 import { PlayStoreModal } from './components/modals/PlayStoreModal';
+import { AdminPanelModal } from './components/modals/AdminPanelModal';
 import { FloatingAudioIcon } from './components/player/FloatingAudioIcon';
 
 const MainLayout: React.FC = () => {
@@ -34,6 +35,7 @@ const MainLayout: React.FC = () => {
   const [isPocketModeOpen, setIsPocketModeOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [isPlayStoreModalOpen, setIsPlayStoreModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [saveToCollectionVideoId, setSaveToCollectionVideoId] = useState<string | null>(null);
 
   const handleOpenCollectionModal = (videoId: string) => {
@@ -49,6 +51,7 @@ const MainLayout: React.FC = () => {
         onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
         onOpenGuideModal={() => setIsGuideModalOpen(true)}
         onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
       />
 
       {/* Main Layout Area: Sidebar (Desktop) + Active View */}
@@ -58,6 +61,7 @@ const MainLayout: React.FC = () => {
           onCreateCollectionModal={() => setIsCreateCollectionOpen(true)}
           onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
           onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
+          onOpenAdminModal={() => setIsAdminModalOpen(true)}
         />
 
         {/* View Router */}
@@ -108,6 +112,7 @@ const MainLayout: React.FC = () => {
       <MobileBottomNav
         onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
         onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
       />
 
       {/* Pocket Mode / Tela 100% Apagada (Ouvir no Bolso sem toques acidentais e zero gasto de bateria) */}
@@ -157,6 +162,12 @@ const MainLayout: React.FC = () => {
       <CreateCollectionModal
         isOpen={isCreateCollectionOpen}
         onClose={() => setIsCreateCollectionOpen(false)}
+      />
+
+      {/* Admin Management Modal (Accessible only to Admin) */}
+      <AdminPanelModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
       />
     </div>
   );

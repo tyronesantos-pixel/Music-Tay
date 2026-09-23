@@ -1,18 +1,22 @@
 import React from 'react';
-import { Home, Zap, Plus, Layers, Tv } from 'lucide-react';
+import { Home, Zap, Plus, Layers, Tv, ShieldCheck } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
+import { useAuth } from '../context/AuthContext';
 import { YouTubeViewMode } from '../services/youtubeService';
 
 interface MobileBottomNavProps {
   onOpenAddModal: () => void;
   onOpenPlaylistsModal?: () => void;
+  onOpenAdminModal?: () => void;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenAddModal,
   onOpenPlaylistsModal,
+  onOpenAdminModal,
 }) => {
   const { currentView, setCurrentView, videos, collections, openCollection } = useVideoLibrary();
+  const { isAdmin } = useAuth();
 
   const navItems: Array<{
     id: YouTubeViewMode;
@@ -60,6 +64,16 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       icon: <Tv className="w-5 h-5" />,
     },
   ];
+
+  // If user is Admin, add Admin panel button to mobile bar
+  if (isAdmin && onOpenAdminModal) {
+    navItems.push({
+      id: 'admin',
+      label: 'Admin',
+      icon: <ShieldCheck className="w-5 h-5 text-amber-400" />,
+      onClick: onOpenAdminModal,
+    });
+  }
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#121018]/95 backdrop-blur-xl border-t border-white/10 px-2 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] flex items-center justify-around select-none shadow-2xl">

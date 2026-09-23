@@ -15,6 +15,7 @@ import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { VideoCard } from '../common/VideoCard';
 import { AddSongsToPlaylistModal } from '../modals/AddSongsToPlaylistModal';
 import { EditCollectionModal } from '../modals/EditCollectionModal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface CollectionViewProps {
   onOpenCollectionModal: (videoId: string) => void;
@@ -26,6 +27,17 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
   const { playVideo } = useVideoPlayer();
   const [isAddSongsModalOpen, setIsAddSongsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    action: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: () => {},
+  });
 
   const currentPlaylist = collections.find((c) => c.id === activeCollectionId) || collections[0];
 
@@ -141,9 +153,12 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
 
           <button
             onClick={() => {
-              if (confirm(`Deseja excluir a playlist "${currentPlaylist.name}"?`)) {
-                deleteCollection(currentPlaylist.id);
-              }
+              setConfirmConfig({
+                isOpen: true,
+                title: 'Excluir Playlist',
+                message: `Deseja realmente excluir a playlist "${currentPlaylist.name}"? Os vídeos originais continuarão salvos na sua biblioteca.`,
+                action: () => deleteCollection(currentPlaylist.id),
+              });
             }}
             className="p-2.5 rounded-full bg-[#221f2d] hover:bg-rose-950 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer border border-white/5"
             title="Excluir Playlist"
@@ -189,7 +204,12 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  removeVideoFromCollection(currentPlaylist.id, video.id);
+                  setConfirmConfig({
+                    isOpen: true,
+                    title: 'Remover da Playlist',
+                    message: `Deseja remover "${video.title}" desta playlist? O vídeo continuará na sua biblioteca geral.`,
+                    action: () => removeVideoFromCollection(currentPlaylist.id, video.id),
+                  });
                 }}
                 className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 opacity-0 group-hover/item:opacity-100 transition-all z-20 cursor-pointer shadow-md"
                 title="Remover desta playlist"
@@ -213,6 +233,16 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         collection={currentPlaylist}
+      />
+
+      {/* In-App Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmConfig.action}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        confirmLabel="Sim, Remover"
       />
     </div>
   );

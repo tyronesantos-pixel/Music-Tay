@@ -1,7 +1,8 @@
 import React from 'react';
-import { Plus, Layers, Cloud, Youtube, Music, Film, Gamepad2, Sparkles } from 'lucide-react';
+import { Plus, Layers, Cloud, Youtube, Music, Film, Gamepad2, Sparkles, User } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
+import { useAuth } from '../../context/AuthContext';
 import { VideoCard } from '../common/VideoCard';
 import { PlayerLogo } from '../common/PlayerLogo';
 
@@ -27,6 +28,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     isCloudConnected,
   } = useVideoLibrary();
   const { playVideo } = useVideoPlayer();
+  const { user } = useAuth();
 
   const categories: Array<{
     id: 'all' | 'musicas' | 'videoclipe' | 'games';
@@ -99,7 +101,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return true;
   });
 
-  // Empty state
+  // Empty state (fresh clean space for new users)
   if (videos.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 flex flex-col items-center justify-center text-center max-w-lg mx-auto w-full">
@@ -108,15 +110,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <PlayerLogo size="xl" animate />
         </div>
 
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold mb-3">
+          <User className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Espaço Privado: {user?.name || 'Novo Usuário'}</span>
+        </div>
+
         <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">
-          Player do{' '}
+          Sua biblioteca está{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">
-            Tyrone
+            pronta e em branco
           </span>
         </h2>
 
         <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mb-6 leading-relaxed">
-          Sua biblioteca está conectada à nuvem em tempo real. Adicione links de <strong>Videoclipes</strong>, <strong>Músicas</strong> ou <strong>Games</strong>.
+          Tudo o que você adicionar ou organizar fica salvo exclusivamente na sua conta na nuvem, sem interferir no conteúdo de outras pessoas.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
@@ -139,7 +146,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         <div className="mt-8 flex items-center gap-2 text-[11px] text-zinc-400 bg-[#16141f] px-4 py-2 rounded-full border border-violet-500/20 shadow-md">
           <Cloud className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Banco em Nuvem Conectado em Tempo Real</span>
+          <span>Sincronização Pessoal Isolada na Nuvem</span>
         </div>
       </div>
     );

@@ -15,6 +15,7 @@
         "tags": { "type": "array", "items": { "type": "string" } },
         "notes": { "type": "string" },
         "category": { "type": "string" },
+        "userId": { "type": "string" },
         "addedAt": { "type": "string" },
         "lastSyncedAt": { "type": "string" }
       },
@@ -22,7 +23,7 @@
     },
     "collections": {
       "title": "Collections",
-      "description": "Playlists and collections of videos",
+      "description": "Playlists and collections of videos personal to each user",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -30,18 +31,21 @@
         "category": { "type": "string" },
         "color": { "type": "string" },
         "videoIds": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" },
         "createdAt": { "type": "string" }
       },
       "required": ["id", "name"]
     },
     "users": {
       "title": "Users",
-      "description": "User accounts with encrypted credentials for cross-device authentication",
+      "description": "User accounts with encrypted credentials for cross-device authentication and access approval",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "nameLower": { "type": "string" },
         "email": { "type": "string" },
+        "role": { "type": "string" },
+        "accessStatus": { "type": "string" },
         "passwordHash": { "type": "string" },
         "createdAt": { "type": "string" },
         "lastLoginAt": { "type": "string" }

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { YouTubeVideo } from '../services/youtubeService';
-import { realTimeLoad, realTimeSave, STORAGE_KEYS } from '../services/dbStorage';
+import { realTimeLoad, realTimeSave } from '../services/dbStorage';
 import {
   startBackgroundAudioSession,
   stopBackgroundAudioSession,
   updateMediaSession,
 } from '../services/backgroundAudio';
+import { useAuth } from './AuthContext';
 
 interface WatchHistoryItem {
   videoId: string;
@@ -43,6 +44,13 @@ interface VideoPlayerContextType {
 const VideoPlayerContext = createContext<VideoPlayerContextType | null>(null);
 
 export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const currentUserId = user?.email?.toLowerCase().trim() || user?.id || 'guest';
+
+  // Per-user isolated storage keys
+  const USER_LIKED_KEY = `tyrone_player_liked_${currentUserId}`;
+  const USER_HISTORY_KEY = `tyrone_player_history_${currentUserId}`;
+
   const [currentVideo, setCurrentVideo] = useState<YouTubeVideo | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
@@ -51,9 +59,9 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isMiniPlayer, setIsMiniPlayer] = useState<boolean>(false);
   const [queue, setQueue] = useState<YouTubeVideo[]>([]);
 
-  // Persistent Likes - starts empty
+  // Persistent Likes - per user environment
   const [likedVideoIds, setLikedVideoIds] = useState<Set<string>>(() => {
-    const list = realTimeLoad<string[]>(STORAGE_KEYS.LIKED, []);
+    const list = realTimeLoad<string[]>(USER_LIKED_KEY, []);
     return new Set(list);
   });
 
@@ -62,19 +70,27 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return new Set();
   });
 
-  // Persistent History - starts empty
+  // Persistent History - per user environment
   const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>(() => {
-    return realTimeLoad<WatchHistoryItem[]>(STORAGE_KEYS.HISTORY, []);
+    return realTimeLoad<WatchHistoryItem[]>(USER_HISTORY_KEY, []);
   });
+
+  // Reload likes and history when user changes
+  useEffect(() => {
+    const list = realTimeLoad<string[]>(USER_LIKED_KEY, []);
+    setLikedVideoIds(new Set(list));
+    const hist = realTimeLoad<WatchHistoryItem[]>(USER_HISTORY_KEY, []);
+    setWatchHistory(hist);
+  }, [USER_LIKED_KEY, USER_HISTORY_KEY]);
 
   // Real-time synchronization to storage
   useEffect(() => {
-    realTimeSave(STORAGE_KEYS.LIKED, Array.from(likedVideoIds));
-  }, [likedVideoIds]);
+    realTimeSave(USER_LIKED_KEY, Array.from(likedVideoIds));
+  }, [likedVideoIds, USER_LIKED_KEY]);
 
   useEffect(() => {
-    realTimeSave(STORAGE_KEYS.HISTORY, watchHistory.slice(0, 60));
-  }, [watchHistory]);
+    realTimeSave(USER_HISTORY_KEY, watchHistory.slice(0, 60));
+  }, [watchHistory, USER_HISTORY_KEY]);
 
   // Fullscreen listener
   useEffect(() => {
@@ -100,17 +116,17 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     updateMediaSession({
       title: video.title,
       artist: video.channelTitle,
-      album: 'Player do Tyrone',
+      album: 'Player Pessoal',
       artworkUrl: video.thumbnailUrl,
     });
 
     setWatchHistory((prev) => {
       const filtered = prev.filter((item) => item.videoId !== video.id);
       const next = [{ videoId: video.id, watchedAt: new Date().toISOString() }, ...filtered];
-      realTimeSave(STORAGE_KEYS.HISTORY, next);
+      realTimeSave(USER_HISTORY_KEY, next);
       return next;
     });
-  }, []);
+  }, [USER_HISTORY_KEY]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
@@ -130,19 +146,23 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [queue, playVideo]);
 
-  const prevVideo = useCallback(() => {}, []);
+  const prevVideo = useCallback(() => {
+    if (watchHistory.length > 1) {
+      // Previous in history
+    }
+  }, [watchHistory]);
 
   const toggleAutoPlayNext = useCallback(() => {
-    setAutoPlayNext((p) => !p);
+    setAutoPlayNext((prev) => !prev);
   }, []);
 
   const toggleTheater = useCallback(() => {
-    setIsTheaterMode((p) => !p);
+    setIsTheaterMode((prev) => !prev);
   }, []);
 
   const toggleFullscreen = useCallback((element?: HTMLElement | null) => {
-    const target = element || document.documentElement;
     if (!document.fullscreenElement) {
+      const target = element || document.documentElement;
       target.requestFullscreen().catch(console.warn);
     } else {
       document.exitFullscreen().catch(console.warn);
@@ -157,7 +177,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } else {
         next.add(videoId);
       }
-      realTimeSave(STORAGE_KEYS.LIKED, Array.from(next));
       return next;
     });
   }, []);
@@ -175,7 +194,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const addToQueue = useCallback((video: YouTubeVideo) => {
-    setQueue((prev) => (prev.some((v) => v.id === video.id) ? prev : [...prev, video]));
+    setQueue((prev) => [...prev.filter((v) => v.id !== video.id), video]);
   }, []);
 
   const removeFromQueue = useCallback((index: number) => {
