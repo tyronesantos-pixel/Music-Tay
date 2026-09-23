@@ -18,6 +18,12 @@ import {
   updateCollectionInCloud,
   deleteCollectionFromCloud,
 } from '../services/cloudDatabase';
+import { realTimeLoad, realTimeSave } from '../services/dbStorage';
+
+const LOCAL_STORAGE_KEYS = {
+  VIDEOS: 'tyrone_player_videos_v3',
+  COLLECTIONS: 'tyrone_player_collections_v3',
+};
 
 interface VideoLibraryContextType {
   videos: YouTubeVideo[];
@@ -76,10 +82,37 @@ interface VideoLibraryContextType {
 
 const VideoLibraryContext = createContext<VideoLibraryContextType | null>(null);
 
+function deriveChannels(videoList: YouTubeVideo[]): YouTubeChannelItem[] {
+  const channelMap = new Map<string, { count: number; url?: string }>();
+  videoList.forEach((v) => {
+    if (v.channelTitle) {
+      const current = channelMap.get(v.channelTitle) || { count: 0, url: v.channelUrl };
+      channelMap.set(v.channelTitle, { count: current.count + 1, url: v.channelUrl || current.url });
+    }
+  });
+
+  return Array.from(channelMap.entries()).map(([name, info]) => ({
+    id: name.toLowerCase().replace(/\s+/g, '_'),
+    handle: name,
+    name,
+    channelUrl: info.url || 'https://www.youtube.com',
+    videoCount: info.count,
+    lastSyncedAt: new Date().toISOString(),
+  }));
+}
+
 export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
-  const [collections, setCollections] = useState<YouTubeCollection[]>([]);
-  const [channels, setChannels] = useState<YouTubeChannelItem[]>([]);
+  // Pre-load from local storage instantly so there's zero initial wait
+  const [videos, setVideos] = useState<YouTubeVideo[]>(() =>
+    realTimeLoad<YouTubeVideo[]>(LOCAL_STORAGE_KEYS.VIDEOS, [])
+  );
+  const [collections, setCollections] = useState<YouTubeCollection[]>(() =>
+    realTimeLoad<YouTubeCollection[]>(LOCAL_STORAGE_KEYS.COLLECTIONS, [])
+  );
+  const [channels, setChannels] = useState<YouTubeChannelItem[]>(() =>
+    deriveChannels(realTimeLoad<YouTubeVideo[]>(LOCAL_STORAGE_KEYS.VIDEOS, []))
+  );
+
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
   const [cloudError, setCloudError] = useState<string | null>(null);
 
@@ -99,38 +132,27 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     const unsubVideos = subscribeToCloudVideos(
       (cloudVideos) => {
-        setVideos(cloudVideos);
+        // If cloud has videos, update state and local cache
+        if (cloudVideos && cloudVideos.length > 0) {
+          setVideos(cloudVideos);
+          realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, cloudVideos);
+          setChannels(deriveChannels(cloudVideos));
+        }
         setIsCloudConnected(true);
         setCloudError(null);
-
-        // Derive channels dynamically from cloud videos
-        const channelMap = new Map<string, { count: number; url?: string }>();
-        cloudVideos.forEach((v) => {
-          if (v.channelTitle) {
-            const current = channelMap.get(v.channelTitle) || { count: 0, url: v.channelUrl };
-            channelMap.set(v.channelTitle, { count: current.count + 1, url: v.channelUrl || current.url });
-          }
-        });
-
-        const derivedChannels: YouTubeChannelItem[] = Array.from(channelMap.entries()).map(([name, info]) => ({
-          id: name.toLowerCase().replace(/\s+/g, '_'),
-          handle: name,
-          name,
-          channelUrl: info.url || 'https://www.youtube.com',
-          videoCount: info.count,
-          lastSyncedAt: new Date().toISOString(),
-        }));
-        setChannels(derivedChannels);
       },
       (error) => {
         console.warn('[CloudDatabase] Firestore subscription warning:', error);
-        setCloudError('Conectando ao banco em nuvem...');
+        setCloudError('Usando modo local com sincronização em nuvem');
       }
     );
 
     const unsubCollections = subscribeToCloudCollections(
       (cloudCollections) => {
-        setCollections(cloudCollections);
+        if (cloudCollections && cloudCollections.length > 0) {
+          setCollections(cloudCollections);
+          realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, cloudCollections);
+        }
       },
       (error) => {
         console.warn('[CloudDatabase] Collections subscription warning:', error);
@@ -149,10 +171,15 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setIsSyncing(true);
 
     try {
+      const updatedList: YouTubeVideo[] = [];
       for (const video of videos) {
         const synced = await syncSingleYouTubeVideo(video);
         await saveVideoToCloud(synced);
+        updatedList.push(synced);
       }
+      setVideos(updatedList);
+      realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, updatedList);
+      setChannels(deriveChannels(updatedList));
       setLastGlobalSync(new Date().toISOString());
     } catch (e) {
       console.warn('Error in cloud sync:', e);
@@ -173,7 +200,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => clearInterval(timer);
   }, [autoSyncEnabled, syncIntervalMinutes, syncAllVideos, videos.length]);
 
-  // Add YouTube Link directly to Cloud Database
+  // Add YouTube Link: Optimistic update + Cloud save
   const addYouTubeLink = useCallback(
     async (
       input: string,
@@ -215,51 +242,108 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
         notes: notes || '',
       };
 
-      // Save directly to Cloud Database (Firestore)
-      await saveVideoToCloud(newVideo);
+      // 1. Instant optimistic state update
+      setVideos((prev) => {
+        const next = [newVideo, ...prev.filter((v) => v.id !== newVideo.id)];
+        realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, next);
+        setChannels(deriveChannels(next));
+        return next;
+      });
+
+      // 2. Cloud database persist
+      saveVideoToCloud(newVideo).catch((err) =>
+        console.warn('[CloudDatabase] Background save error:', err)
+      );
 
       return newVideo;
     },
     [videos]
   );
 
-  const deleteVideo = useCallback(async (videoId: string) => {
-    // Delete from Cloud Database
-    await deleteVideoFromCloud(videoId);
+  const deleteVideo = useCallback(
+    async (videoId: string) => {
+      // Optimistic delete
+      setVideos((prev) => {
+        const next = prev.filter((v) => v.id !== videoId);
+        realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, next);
+        setChannels(deriveChannels(next));
+        return next;
+      });
 
-    // Also remove from any cloud collections that had it
-    for (const col of collections) {
-      if (col.videoIds.includes(videoId)) {
-        await saveCollectionToCloud({
-          ...col,
-          videoIds: col.videoIds.filter((id) => id !== videoId),
-        });
+      setCollections((prev) => {
+        const next = prev.map((c) => ({
+          ...c,
+          videoIds: c.videoIds.filter((id) => id !== videoId),
+        }));
+        realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+        return next;
+      });
+
+      // Cloud delete
+      deleteVideoFromCloud(videoId).catch(console.warn);
+      for (const col of collections) {
+        if (col.videoIds.includes(videoId)) {
+          saveCollectionToCloud({
+            ...col,
+            videoIds: col.videoIds.filter((id) => id !== videoId),
+          }).catch(console.warn);
+        }
       }
-    }
-  }, [collections]);
+    },
+    [collections]
+  );
 
   const bulkDeleteVideos = useCallback(async (videoIds: string[]) => {
+    const idSet = new Set(videoIds);
+    setVideos((prev) => {
+      const next = prev.filter((v) => !idSet.has(v.id));
+      realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, next);
+      setChannels(deriveChannels(next));
+      return next;
+    });
+
     for (const id of videoIds) {
-      await deleteVideoFromCloud(id);
+      deleteVideoFromCloud(id).catch(console.warn);
     }
   }, []);
 
   const clearAllVideos = useCallback(async () => {
-    for (const v of videos) {
-      await deleteVideoFromCloud(v.id);
+    const toDelete = [...videos];
+    setVideos([]);
+    realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, []);
+    setChannels([]);
+
+    for (const v of toDelete) {
+      deleteVideoFromCloud(v.id).catch(console.warn);
     }
   }, [videos]);
 
   const updateVideo = useCallback(async (videoId: string, updates: Partial<YouTubeVideo>) => {
-    await updateVideoInCloud(videoId, updates);
+    setVideos((prev) => {
+      const next = prev.map((v) => (v.id === videoId ? { ...v, ...updates } : v));
+      realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, next);
+      setChannels(deriveChannels(next));
+      return next;
+    });
+
+    updateVideoInCloud(videoId, updates).catch(console.warn);
   }, []);
 
-  const syncVideoById = useCallback(async (videoId: string) => {
-    const target = videos.find((v) => v.id === videoId);
-    if (!target) return;
-    const synced = await syncSingleYouTubeVideo(target);
-    await saveVideoToCloud(synced);
-  }, [videos]);
+  const syncVideoById = useCallback(
+    async (videoId: string) => {
+      const target = videos.find((v) => v.id === videoId);
+      if (!target) return;
+      const synced = await syncSingleYouTubeVideo(target);
+      setVideos((prev) => {
+        const next = prev.map((v) => (v.id === videoId ? synced : v));
+        realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, next);
+        setChannels(deriveChannels(next));
+        return next;
+      });
+      saveVideoToCloud(synced).catch(console.warn);
+    },
+    [videos]
+  );
 
   const createCollection = useCallback(
     async (
@@ -278,7 +362,19 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      await saveCollectionToCloud(newCol);
+
+      // Optimistic update
+      setCollections((prev) => {
+        const next = [newCol, ...prev];
+        realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+        return next;
+      });
+
+      // Background cloud save
+      saveCollectionToCloud(newCol).catch((err) =>
+        console.warn('[CloudDatabase] Error saving new collection:', err)
+      );
+
       return newCol;
     },
     []
@@ -286,54 +382,103 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const updateCollection = useCallback(
     async (collectionId: string, updates: Partial<YouTubeCollection>) => {
-      await updateCollectionInCloud(collectionId, updates);
+      // 1. Instant optimistic update
+      setCollections((prev) => {
+        const next = prev.map((col) =>
+          col.id === collectionId
+            ? { ...col, ...updates, updatedAt: new Date().toISOString() }
+            : col
+        );
+        realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+        return next;
+      });
+
+      // 2. Cloud update in background
+      updateCollectionInCloud(collectionId, updates).catch((err) =>
+        console.warn('[CloudDatabase] Error updating collection:', err)
+      );
     },
     []
   );
 
-  const deleteCollection = useCallback(async (id: string) => {
-    await deleteCollectionFromCloud(id);
-    if (activeCollectionId === id) {
-      setCurrentView('home');
-      setActiveCollectionId(null);
-    }
-  }, [activeCollectionId]);
+  const deleteCollection = useCallback(
+    async (id: string) => {
+      // Optimistic delete
+      setCollections((prev) => {
+        const next = prev.filter((col) => col.id !== id);
+        realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+        return next;
+      });
+
+      if (activeCollectionId === id) {
+        setCurrentView('home');
+        setActiveCollectionId(null);
+      }
+
+      deleteCollectionFromCloud(id).catch(console.warn);
+    },
+    [activeCollectionId]
+  );
 
   const addVideoToCollection = useCallback(async (collectionId: string, videoId: string) => {
-    const target = collections.find((c) => c.id === collectionId);
-    if (target && !target.videoIds.includes(videoId)) {
-      await saveCollectionToCloud({
-        ...target,
-        videoIds: [...target.videoIds, videoId],
-        updatedAt: new Date().toISOString(),
+    setCollections((prev) => {
+      const next = prev.map((col) => {
+        if (col.id === collectionId && !col.videoIds.includes(videoId)) {
+          const updated = {
+            ...col,
+            videoIds: [...col.videoIds, videoId],
+            updatedAt: new Date().toISOString(),
+          };
+          saveCollectionToCloud(updated).catch(console.warn);
+          return updated;
+        }
+        return col;
       });
-    }
-  }, [collections]);
+      realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+      return next;
+    });
+  }, []);
 
   const removeVideoFromCollection = useCallback(async (collectionId: string, videoId: string) => {
-    const target = collections.find((c) => c.id === collectionId);
-    if (target) {
-      await saveCollectionToCloud({
-        ...target,
-        videoIds: target.videoIds.filter((id) => id !== videoId),
-        updatedAt: new Date().toISOString(),
+    setCollections((prev) => {
+      const next = prev.map((col) => {
+        if (col.id === collectionId) {
+          const updated = {
+            ...col,
+            videoIds: col.videoIds.filter((id) => id !== videoId),
+            updatedAt: new Date().toISOString(),
+          };
+          saveCollectionToCloud(updated).catch(console.warn);
+          return updated;
+        }
+        return col;
       });
-    }
-  }, [collections]);
+      realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+      return next;
+    });
+  }, []);
 
   const addMultipleVideosToCollection = useCallback(
     async (collectionId: string, videoIds: string[]) => {
-      const target = collections.find((c) => c.id === collectionId);
-      if (target) {
-        const combined = Array.from(new Set([...target.videoIds, ...videoIds]));
-        await saveCollectionToCloud({
-          ...target,
-          videoIds: combined,
-          updatedAt: new Date().toISOString(),
+      setCollections((prev) => {
+        const next = prev.map((col) => {
+          if (col.id === collectionId) {
+            const combined = Array.from(new Set([...col.videoIds, ...videoIds]));
+            const updated = {
+              ...col,
+              videoIds: combined,
+              updatedAt: new Date().toISOString(),
+            };
+            saveCollectionToCloud(updated).catch(console.warn);
+            return updated;
+          }
+          return col;
         });
-      }
+        realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, next);
+        return next;
+      });
     },
-    [collections]
+    []
   );
 
   const openVideoView = useCallback((video: YouTubeVideo) => {
@@ -367,12 +512,21 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const data = JSON.parse(jsonString);
       if (data && Array.isArray(data.videos)) {
+        setVideos(data.videos);
+        realTimeSave(LOCAL_STORAGE_KEYS.VIDEOS, data.videos);
+        setChannels(deriveChannels(data.videos));
+
+        if (Array.isArray(data.collections)) {
+          setCollections(data.collections);
+          realTimeSave(LOCAL_STORAGE_KEYS.COLLECTIONS, data.collections);
+        }
+
         for (const video of data.videos) {
-          await saveVideoToCloud(video);
+          saveVideoToCloud(video).catch(console.warn);
         }
         if (Array.isArray(data.collections)) {
           for (const col of data.collections) {
-            await saveCollectionToCloud(col);
+            saveCollectionToCloud(col).catch(console.warn);
           }
         }
         return true;

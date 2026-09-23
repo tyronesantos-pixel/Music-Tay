@@ -4,7 +4,6 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  updateDoc,
   onSnapshot,
 } from '../lib/firebase';
 import { YouTubeVideo, YouTubeCollection } from './youtubeService';
@@ -45,6 +44,7 @@ export function subscribeToCloudVideos(
             likes: Number(data.likes) || 0,
             status: data.status || 'active',
             notes: data.notes || '',
+            category: data.category || 'all',
           });
         });
 
@@ -53,13 +53,13 @@ export function subscribeToCloudVideos(
         onUpdate(list);
       },
       (error) => {
-        console.error('[CloudDatabase] Firestore subscription error:', error);
+        console.warn('[CloudDatabase] Firestore subscription warning:', error);
         if (onError) onError(error);
       }
     );
     return unsubscribe;
   } catch (err) {
-    console.error('[CloudDatabase] Failed to subscribe to videos:', err);
+    console.warn('[CloudDatabase] Failed to subscribe to videos:', err);
     return () => {};
   }
 }
@@ -68,48 +68,69 @@ export function subscribeToCloudVideos(
  * Saves or updates a video directly in the cloud database
  */
 export async function saveVideoToCloud(video: YouTubeVideo): Promise<void> {
-  const docRef = doc(db, VIDEOS_COLLECTION, video.id);
-  await setDoc(docRef, {
-    id: video.id,
-    youtubeUrl: video.youtubeUrl,
-    title: video.title,
-    description: video.description || '',
-    channelTitle: video.channelTitle,
-    channelUrl: video.channelUrl || '',
-    thumbnailUrl: video.thumbnailUrl,
-    duration: video.duration || 0,
-    isShort: Boolean(video.isShort),
-    playlistId: video.playlistId || null,
-    tags: video.tags || [],
-    addedAt: video.addedAt || new Date().toISOString(),
-    lastSyncedAt: new Date().toISOString(),
-    views: video.views || 0,
-    likes: video.likes || 0,
-    status: video.status || 'active',
-    notes: video.notes || '',
-  });
+  try {
+    const docRef = doc(db, VIDEOS_COLLECTION, video.id);
+    await setDoc(
+      docRef,
+      {
+        id: video.id,
+        youtubeUrl: video.youtubeUrl,
+        title: video.title,
+        description: video.description || '',
+        channelTitle: video.channelTitle,
+        channelUrl: video.channelUrl || '',
+        thumbnailUrl: video.thumbnailUrl,
+        duration: video.duration || 0,
+        isShort: Boolean(video.isShort),
+        playlistId: video.playlistId || null,
+        tags: video.tags || [],
+        addedAt: video.addedAt || new Date().toISOString(),
+        lastSyncedAt: new Date().toISOString(),
+        views: video.views || 0,
+        likes: video.likes || 0,
+        status: video.status || 'active',
+        notes: video.notes || '',
+        category: video.category || 'all',
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('[CloudDatabase] Error saving video to cloud:', err);
+  }
+}
+
+/**
+ * Updates video fields in the cloud database with merge: true to avoid "No document to update"
+ */
+export async function updateVideoInCloud(
+  videoId: string,
+  updates: Partial<YouTubeVideo>
+): Promise<void> {
+  try {
+    const docRef = doc(db, VIDEOS_COLLECTION, videoId);
+    await setDoc(
+      docRef,
+      {
+        ...updates,
+        lastSyncedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('[CloudDatabase] Error updating video in cloud:', err);
+  }
 }
 
 /**
  * Deletes a video from the cloud database
  */
 export async function deleteVideoFromCloud(videoId: string): Promise<void> {
-  const docRef = doc(db, VIDEOS_COLLECTION, videoId);
-  await deleteDoc(docRef);
-}
-
-/**
- * Updates video fields in the cloud database
- */
-export async function updateVideoInCloud(
-  videoId: string,
-  updates: Partial<YouTubeVideo>
-): Promise<void> {
-  const docRef = doc(db, VIDEOS_COLLECTION, videoId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    const docRef = doc(db, VIDEOS_COLLECTION, videoId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.error('[CloudDatabase] Error deleting video from cloud:', err);
+  }
 }
 
 /**
@@ -141,13 +162,13 @@ export function subscribeToCloudCollections(
         onUpdate(list);
       },
       (error) => {
-        console.error('[CloudDatabase] Firestore collections error:', error);
+        console.warn('[CloudDatabase] Firestore collections error:', error);
         if (onError) onError(error);
       }
     );
     return unsubscribe;
   } catch (err) {
-    console.error('[CloudDatabase] Failed to subscribe to collections:', err);
+    console.warn('[CloudDatabase] Failed to subscribe to collections:', err);
     return () => {};
   }
 }
@@ -156,37 +177,57 @@ export function subscribeToCloudCollections(
  * Saves a collection in the cloud database
  */
 export async function saveCollectionToCloud(collectionItem: YouTubeCollection): Promise<void> {
-  const docRef = doc(db, COLLECTIONS_COLLECTION, collectionItem.id);
-  await setDoc(docRef, {
-    id: collectionItem.id,
-    name: collectionItem.name,
-    description: collectionItem.description || '',
-    category: collectionItem.category || 'all',
-    color: collectionItem.color || '',
-    videoIds: collectionItem.videoIds || [],
-    createdAt: collectionItem.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    const docRef = doc(db, COLLECTIONS_COLLECTION, collectionItem.id);
+    await setDoc(
+      docRef,
+      {
+        id: collectionItem.id,
+        name: collectionItem.name,
+        description: collectionItem.description || '',
+        category: collectionItem.category || 'all',
+        color: collectionItem.color || '',
+        videoIds: collectionItem.videoIds || [],
+        createdAt: collectionItem.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('[CloudDatabase] Error saving collection to cloud:', err);
+  }
 }
 
 /**
- * Updates collection fields in the cloud database
+ * Updates collection fields in the cloud database with merge: true
  */
 export async function updateCollectionInCloud(
   collectionId: string,
   updates: Partial<YouTubeCollection>
 ): Promise<void> {
-  const docRef = doc(db, COLLECTIONS_COLLECTION, collectionId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    const docRef = doc(db, COLLECTIONS_COLLECTION, collectionId);
+    await setDoc(
+      docRef,
+      {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('[CloudDatabase] Error updating collection in cloud:', err);
+  }
 }
 
 /**
  * Deletes a collection from the cloud database
  */
 export async function deleteCollectionFromCloud(collectionId: string): Promise<void> {
-  const docRef = doc(db, COLLECTIONS_COLLECTION, collectionId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, COLLECTIONS_COLLECTION, collectionId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.error('[CloudDatabase] Error deleting collection from cloud:', err);
+  }
 }

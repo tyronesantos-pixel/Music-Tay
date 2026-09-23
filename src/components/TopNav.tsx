@@ -8,8 +8,11 @@ import {
   ChevronDown,
   Cloud,
   Sparkles,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
+import { useAuth } from '../context/AuthContext';
 import { PlayerLogo } from './common/PlayerLogo';
 
 interface TopNavProps {
@@ -37,6 +40,8 @@ export const TopNav: React.FC<TopNavProps> = ({
     categoryFilter,
     setCategoryFilter,
   } = useVideoLibrary();
+
+  const { user, logout } = useAuth();
 
   const filterCategories: Array<{
     label: string;
@@ -162,6 +167,25 @@ export const TopNav: React.FC<TopNavProps> = ({
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
             <span className="hidden sm:inline">Adicionar</span>
           </button>
+
+          {/* User Profile & Logout */}
+          {user && (
+            <div className="flex items-center gap-1.5 pl-1 border-l border-white/10">
+              <div
+                className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 text-white text-xs font-extrabold flex items-center justify-center shadow-sm cursor-default"
+                title={`Logado como: ${user.name} (${user.email})`}
+              >
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <button
+                onClick={logout}
+                title="Sair da Conta"
+                className="p-1.5 rounded-full bg-[#1f1b2b] hover:bg-rose-950/50 text-zinc-400 hover:text-rose-400 border border-white/10 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthScreen } from './components/auth/AuthScreen';
 import { VideoPlayerProvider, useVideoPlayer } from './context/VideoPlayerContext';
 import { VideoLibraryProvider, useVideoLibrary } from './context/VideoLibraryContext';
 import { TopNav } from './components/TopNav';
@@ -39,7 +41,7 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#121212] text-white overflow-hidden select-none font-sans">
+    <div className="flex flex-col h-screen w-screen bg-[#0f0d14] text-white overflow-hidden select-none font-sans">
       {/* Top Universal Navbar */}
       <TopNav
         onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
@@ -55,31 +57,14 @@ const MainLayout: React.FC = () => {
         <Sidebar
           onCreateCollectionModal={() => setIsCreateCollectionOpen(true)}
           onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-          onOpenSyncModal={() => setIsSyncModalOpen(true)}
           onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
         />
 
-        {/* Dynamic Main View */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#121212] overflow-hidden relative">
-          {/* WatchView is kept mounted when currentVideo exists so audio NEVER restarts or interrupts when navigating! */}
-          {currentVideo && (
-            <div
-              className={
-                currentView === 'watch'
-                  ? 'flex-1 flex flex-col min-w-0 overflow-y-auto'
-                  : 'fixed -top-[9999px] -left-[9999px] w-[1px] h-[1px] opacity-0 pointer-events-none overflow-hidden z-[-1]'
-              }
-            >
-              <WatchView
-                onOpenCollectionModal={handleOpenCollectionModal}
-                onOpenPocketMode={() => setIsPocketModeOpen(true)}
-                onOpenGuideModal={() => setIsGuideModalOpen(true)}
-              />
-            </div>
-          )}
-
-          {/* Visible View when not on 'watch' */}
-          {currentView !== 'watch' && (
+        {/* View Router */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#0c0a12] overflow-hidden relative pb-16 md:pb-0">
+          {currentView === 'watch' ? (
+            <WatchView onOpenCollectionModal={handleOpenCollectionModal} />
+          ) : (
             <>
               {currentView === 'home' && (
                 <HomeView
@@ -119,7 +104,7 @@ const MainLayout: React.FC = () => {
         onOpenPocketMode={() => setIsPocketModeOpen(true)}
       />
 
-      {/* Mobile Bottom Navigation (Spotify style) */}
+      {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
         onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
@@ -177,12 +162,34 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default function App() {
+const AuthenticatedApp: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-screen bg-[#0a0812] flex items-center justify-center">
+        <div className="w-10 h-10 border-3 border-violet-500/20 border-t-cyan-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen />;
+  }
+
   return (
     <VideoLibraryProvider>
       <VideoPlayerProvider>
         <MainLayout />
       </VideoPlayerProvider>
     </VideoLibraryProvider>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
   );
 }
