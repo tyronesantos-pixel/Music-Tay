@@ -48,12 +48,12 @@ export const TopNav: React.FC<TopNavProps> = ({
 
   const filterCategories: Array<{
     label: string;
-    cat: 'all' | 'musicas' | 'videoclipe' | 'games';
+    cat: 'videoclipe' | 'musicas' | 'games' | 'all';
   }> = [
-    { label: 'Todos', cat: 'all' },
-    { label: '🎬 Videoclipe', cat: 'videoclipe' },
-    { label: '🎵 Músicas', cat: 'musicas' },
-    { label: '🎮 Games', cat: 'games' },
+    { label: '🎬 Videoclip', cat: 'videoclipe' },
+    { label: '🎵 Música', cat: 'musicas' },
+    { label: '🎮 Game', cat: 'games' },
+    { label: '🌌 Misto', cat: 'all' },
   ];
 
   return (

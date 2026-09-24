@@ -31,14 +31,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const { user } = useAuth();
 
   const categories: Array<{
-    id: 'all' | 'musicas' | 'videoclipe' | 'games';
+    id: 'videoclipe' | 'musicas' | 'games' | 'all';
     label: string;
     icon: React.ReactNode;
   }> = [
-    { id: 'all', label: 'Todos', icon: <Sparkles className="w-3.5 h-3.5" /> },
-    { id: 'videoclipe', label: 'Videoclipes', icon: <Film className="w-3.5 h-3.5" /> },
-    { id: 'musicas', label: 'Músicas', icon: <Music className="w-3.5 h-3.5" /> },
-    { id: 'games', label: 'Games', icon: <Gamepad2 className="w-3.5 h-3.5" /> },
+    { id: 'videoclipe', label: '🎬 Videoclip', icon: <Film className="w-3.5 h-3.5" /> },
+    { id: 'musicas', label: '🎵 Música', icon: <Music className="w-3.5 h-3.5" /> },
+    { id: 'games', label: '🎮 Game', icon: <Gamepad2 className="w-3.5 h-3.5" /> },
+    { id: 'all', label: '🌌 Misto', icon: <Sparkles className="w-3.5 h-3.5" /> },
   ];
 
   // Filtered videos

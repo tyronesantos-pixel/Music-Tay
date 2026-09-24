@@ -66,38 +66,56 @@ const MainLayout: React.FC = () => {
 
         {/* View Router */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#0c0a12] overflow-hidden relative">
-          {currentView === 'watch' ? (
-            <WatchView onOpenCollectionModal={handleOpenCollectionModal} />
-          ) : (
-            <>
-              {currentView === 'home' && (
-                <HomeView
-                  onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-                  onOpenSyncModal={() => setIsSyncModalOpen(true)}
-                  onOpenCollectionModal={handleOpenCollectionModal}
-                />
-              )}
+          {/* Active Browsing Views (Home, Manage, Liked, History, Collection) */}
+          <div
+            className={`flex-1 flex flex-col min-w-0 overflow-hidden ${
+              currentView === 'watch' ? 'hidden' : 'flex'
+            }`}
+          >
+            {currentView === 'home' && (
+              <HomeView
+                onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
+                onOpenSyncModal={() => setIsSyncModalOpen(true)}
+                onOpenCollectionModal={handleOpenCollectionModal}
+              />
+            )}
 
-              {currentView === 'manage' && (
-                <ManageLibraryView
-                  onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-                  onOpenSyncModal={() => setIsSyncModalOpen(true)}
-                  onOpenCollectionModal={handleOpenCollectionModal}
-                />
-              )}
+            {currentView === 'manage' && (
+              <ManageLibraryView
+                onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
+                onOpenSyncModal={() => setIsSyncModalOpen(true)}
+                onOpenCollectionModal={handleOpenCollectionModal}
+              />
+            )}
 
-              {currentView === 'liked' && (
-                <LikedView onOpenCollectionModal={handleOpenCollectionModal} />
-              )}
+            {currentView === 'liked' && (
+              <LikedView onOpenCollectionModal={handleOpenCollectionModal} />
+            )}
 
-              {currentView === 'history' && (
-                <HistoryView onOpenCollectionModal={handleOpenCollectionModal} />
-              )}
+            {currentView === 'history' && (
+              <HistoryView onOpenCollectionModal={handleOpenCollectionModal} />
+            )}
 
-              {currentView === 'collection' && (
-                <CollectionView onOpenCollectionModal={handleOpenCollectionModal} />
-              )}
-            </>
+            {currentView === 'collection' && (
+              <CollectionView onOpenCollectionModal={handleOpenCollectionModal} />
+            )}
+          </div>
+
+          {/* Persistent Watch View / Player: NEVER UNMOUNTS once a video is playing, so clip continues uninterrupted */}
+          {currentVideo && (
+            <div
+              className={`absolute inset-0 z-20 flex flex-col overflow-hidden bg-[#0c0a12] transition-opacity duration-150 ${
+                currentView === 'watch'
+                  ? 'opacity-100 pointer-events-auto'
+                  : 'opacity-0 pointer-events-none -z-10'
+              }`}
+            >
+              <WatchView
+                onOpenCollectionModal={handleOpenCollectionModal}
+                onOpenPocketMode={() => setIsPocketModeOpen(true)}
+                onOpenGuideModal={() => setIsGuideModalOpen(true)}
+              />
+            </div>
           )}
         </main>
       </div>

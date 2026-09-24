@@ -46,7 +46,7 @@ interface AuthContextType {
   usersList: UserProfile[];
   approveUserAccess: (userId: string, newStatus: UserAccessStatus) => Promise<{ success: boolean; error?: string }>;
   updateUserPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  deleteUserAccount: (userId: string) => Promise<{ success: boolean; error?: string }>;
+  deleteUserAccount: (userId: string, email?: string) => Promise<{ success: boolean; error?: string }>;
   resetAllRegisteredUsers: () => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -547,22 +547,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const deleteUserAccount = async (userId: string): Promise<{ success: boolean; error?: string }> => {
+  const deleteUserAccount = async (
+    userId: string,
+    email?: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
+      const cleanTargetEmail = (email || '').toLowerCase().trim();
+      const cleanTargetId = (userId || '').trim();
+
+      // Master admin protection
+      if (
+        cleanTargetEmail === ADMIN_EMAIL.toLowerCase() ||
+        cleanTargetId === 'admin_tayrone_master' ||
+        cleanTargetId === ADMIN_EMAIL.toLowerCase()
+      ) {
+        return { success: false, error: 'A conta de Administrador Mestre não pode ser excluída.' };
+      }
+
       const snap = await getDocs(collection(db, USERS_COLLECTION));
-      let docToDelete = '';
+      const docsToDelete: string[] = [];
+
       snap.forEach((d) => {
         const data = d.data();
-        if (data.id === userId || d.id === userId) {
-          docToDelete = d.id;
+        const docEmail = (data.email || '').toLowerCase().trim();
+        const docId = d.id;
+        const dataId = data.id || '';
+
+        // Never delete master admin
+        if (docEmail === ADMIN_EMAIL.toLowerCase() || docId === sanitizeDocId(ADMIN_EMAIL)) {
+          return;
+        }
+
+        const matchId = cleanTargetId && (docId === cleanTargetId || dataId === cleanTargetId);
+        const matchEmail =
+          cleanTargetEmail &&
+          (docEmail === cleanTargetEmail || docId === sanitizeDocId(cleanTargetEmail));
+        const matchTargetAsEmail =
+          cleanTargetId.includes('@') && docEmail === cleanTargetId.toLowerCase();
+
+        if (matchId || matchEmail || matchTargetAsEmail) {
+          docsToDelete.push(docId);
         }
       });
 
-      if (docToDelete) {
-        await deleteDoc(doc(db, USERS_COLLECTION, docToDelete));
+      // Also try direct docId if none found via iteration
+      if (docsToDelete.length === 0 && cleanTargetEmail) {
+        docsToDelete.push(sanitizeDocId(cleanTargetEmail));
       }
+
+      for (const dId of docsToDelete) {
+        try {
+          await deleteDoc(doc(db, USERS_COLLECTION, dId));
+        } catch (delErr) {
+          console.warn('[Auth] Delete doc warning for', dId, delErr);
+        }
+      }
+
+      // Also clean user's library in Firestore if exists
+      const libraryDocId = cleanTargetEmail
+        ? cleanTargetEmail.replace(/[^a-z0-9_.-]/g, '_')
+        : cleanTargetId.replace(/[^a-z0-9_.-]/g, '_');
+      try {
+        await deleteDoc(doc(db, 'user_libraries', libraryDocId));
+      } catch (_) {}
+
+      // Clean from local accounts cache
+      try {
+        const currentAccounts = getLocalAccounts();
+        const filteredAccounts = currentAccounts.filter((acc) => {
+          const aEmail = acc.email.toLowerCase().trim();
+          const aId = acc.id;
+          return aEmail !== cleanTargetEmail && aId !== cleanTargetId;
+        });
+        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(filteredAccounts));
+      } catch (_) {}
+
+      // Immediately update local usersList state
+      setUsersList((prev) =>
+        prev.filter((u) => {
+          const uEmail = u.email.toLowerCase().trim();
+          const uId = u.id;
+          return (
+            uEmail !== cleanTargetEmail &&
+            uId !== cleanTargetId &&
+            (!cleanTargetId.includes('@') || uEmail !== cleanTargetId.toLowerCase())
+          );
+        })
+      );
+
       return { success: true };
     } catch (e: any) {
+      console.error('[Auth] Error in deleteUserAccount:', e);
       return { success: false, error: e?.message || 'Erro ao excluir usuário.' };
     }
   };

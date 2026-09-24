@@ -22,8 +22,14 @@ interface CollectionViewProps {
 }
 
 export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollectionModal }) => {
-  const { collections, activeCollectionId, videos, deleteCollection, removeVideoFromCollection } =
-    useVideoLibrary();
+  const {
+    collections,
+    activeCollectionId,
+    videos,
+    deleteCollection,
+    removeVideoFromCollection,
+    openVideoView,
+  } = useVideoLibrary();
   const { playVideo } = useVideoPlayer();
   const [isAddSongsModalOpen, setIsAddSongsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -53,6 +59,12 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
   const playlistVideos = currentPlaylist.videoIds
     .map((id) => videos.find((v) => v.id === id))
     .filter((v): v is NonNullable<typeof v> => Boolean(v));
+
+  const playlistContextObj = {
+    id: currentPlaylist.id,
+    name: currentPlaylist.name,
+    videos: playlistVideos,
+  };
 
   const getCategoryInfo = (cat?: string) => {
     switch (cat) {
@@ -126,11 +138,14 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
         <div className="flex items-center gap-2 flex-wrap relative z-10">
           {playlistVideos.length > 0 && (
             <button
-              onClick={() => playVideo(playlistVideos[0], playlistVideos)}
-              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-violet-600/30 transition-all cursor-pointer"
+              onClick={() => {
+                playVideo(playlistVideos[0], playlistVideos, playlistContextObj);
+                openVideoView(playlistVideos[0]);
+              }}
+              className="px-4 py-2.5 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-violet-600/30 transition-all cursor-pointer transform active:scale-95"
             >
               <Play className="w-4 h-4 fill-current ml-0.5" />
-              <span>Reproduzir</span>
+              <span>Reproduzir Playlist</span>
             </button>
           )}
 
@@ -199,6 +214,7 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
               <VideoCard
                 video={video}
                 queueContext={playlistVideos}
+                playlistContext={playlistContextObj}
                 onOpenCollectionModal={onOpenCollectionModal}
               />
               <button
@@ -211,7 +227,7 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
                     action: () => removeVideoFromCollection(currentPlaylist.id, video.id),
                   });
                 }}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 opacity-0 group-hover/item:opacity-100 transition-all z-20 cursor-pointer shadow-md"
+                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/80 hover:bg-rose-950 text-zinc-300 hover:text-rose-400 opacity-90 sm:opacity-0 sm:group-hover/item:opacity-100 transition-all z-20 cursor-pointer shadow-md"
                 title="Remover desta playlist"
               >
                 <Trash2 className="w-3.5 h-3.5" />

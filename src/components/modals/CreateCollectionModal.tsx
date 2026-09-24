@@ -28,9 +28,9 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   if (!isOpen) return null;
 
   const categories = [
-    { id: 'videoclipe', label: 'Videoclipe', icon: <Film className="w-3.5 h-3.5 text-cyan-400" /> },
-    { id: 'musicas', label: 'Músicas', icon: <Music className="w-3.5 h-3.5 text-violet-400" /> },
-    { id: 'games', label: 'Games', icon: <Gamepad2 className="w-3.5 h-3.5 text-emerald-400" /> },
+    { id: 'videoclipe', label: 'Videoclip', icon: <Film className="w-3.5 h-3.5 text-cyan-400" /> },
+    { id: 'musicas', label: 'Música', icon: <Music className="w-3.5 h-3.5 text-violet-400" /> },
+    { id: 'games', label: 'Game', icon: <Gamepad2 className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'all', label: 'Misto', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
   ] as const;
 

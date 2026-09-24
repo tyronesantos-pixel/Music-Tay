@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Play, Heart, FolderPlus, ExternalLink, Trash2, RefreshCw } from 'lucide-react';
 import { YouTubeVideo, formatDuration } from '../../services/youtubeService';
-import { useVideoPlayer } from '../../context/VideoPlayerContext';
+import { useVideoPlayer, PlaylistContextInfo } from '../../context/VideoPlayerContext';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface VideoCardProps {
   video: YouTubeVideo;
   queueContext?: YouTubeVideo[];
+  playlistContext?: PlaylistContextInfo | null;
   onOpenCollectionModal?: (videoId: string) => void;
   showDelete?: boolean;
 }
@@ -15,6 +16,7 @@ interface VideoCardProps {
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   queueContext,
+  playlistContext,
   onOpenCollectionModal,
   showDelete = true,
 }) => {
@@ -29,7 +31,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    playVideo(video, queueContext);
+    playVideo(video, queueContext, playlistContext);
     openVideoView(video);
   };
 
@@ -43,8 +45,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    deleteVideo(video.id);
+  const handleConfirmDelete = async () => {
+    await deleteVideo(video.id);
   };
 
   const handleSyncClick = async (e: React.MouseEvent) => {
@@ -104,10 +106,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           </div>
 
-          {/* Quick Overlay Action Bar */}
+          {/* Quick Overlay Action Bar - visible on mobile touch and on desktop hover */}
           <div
-            className={`absolute bottom-2 left-2 flex items-center gap-1 transition-opacity duration-200 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
+            className={`absolute bottom-2 left-2 flex items-center gap-1 transition-opacity duration-200 opacity-90 sm:opacity-0 ${
+              isHovered ? 'sm:opacity-100' : ''
             }`}
           >
             {/* Like */}
@@ -170,7 +172,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             </p>
           </div>
 
-          {/* Tags */}
+          {/* Tags & Quick Actions */}
           <div className="flex items-center justify-between pt-1 text-[10px] text-zinc-500">
             <div className="flex items-center gap-1 truncate">
               {video.tags.slice(0, 2).map((tag, idx) => (
@@ -180,16 +182,30 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               ))}
             </div>
 
-            <a
-              href={video.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="p-1 text-zinc-400 hover:text-rose-400 transition-colors"
-              title="Abrir no YouTube"
-            >
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="flex items-center gap-1">
+              {/* Quick direct delete button */}
+              {showDelete && (
+                <button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                  title="Excluir Vídeo da Biblioteca"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+
+              <a
+                href={video.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 text-zinc-400 hover:text-rose-400 transition-colors"
+                title="Abrir no YouTube"
+              >
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

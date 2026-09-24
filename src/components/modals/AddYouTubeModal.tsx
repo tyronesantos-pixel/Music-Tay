@@ -9,8 +9,13 @@ import {
   RefreshCw,
   Plus,
   Cloud,
+  Film,
+  Music,
+  Gamepad2,
+  Sparkles,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { parseYouTubeUrl, fetchYouTubeMetadata } from '../../services/youtubeService';
 
 interface AddYouTubeModalProps {
@@ -18,14 +23,45 @@ interface AddYouTubeModalProps {
   onClose: () => void;
 }
 
-const SUGGESTED_TAGS = ['Música', 'Dev', 'Gaming', 'Tutorial', 'Short', 'Podcast', 'Tech'];
+const CATEGORY_OPTIONS: Array<{
+  id: 'videoclipe' | 'musicas' | 'games' | 'all';
+  label: string;
+  icon: React.ReactNode;
+  desc: string;
+}> = [
+  {
+    id: 'videoclipe',
+    label: '🎬 Videoclip',
+    icon: <Film className="w-3.5 h-3.5 text-cyan-400" />,
+    desc: 'Clipes e vídeos oficiais',
+  },
+  {
+    id: 'musicas',
+    label: '🎵 Música',
+    icon: <Music className="w-3.5 h-3.5 text-violet-400" />,
+    desc: 'Faixas, álbuns e sons',
+  },
+  {
+    id: 'games',
+    label: '🎮 Game',
+    icon: <Gamepad2 className="w-3.5 h-3.5 text-emerald-400" />,
+    desc: 'Trailers, OSTs e jogos',
+  },
+  {
+    id: 'all',
+    label: '🌌 Misto',
+    icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
+    desc: 'Geral / Outros tipos',
+  },
+];
 
 export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClose }) => {
   const { addYouTubeLink, openVideoView } = useVideoLibrary();
+  const { playVideo } = useVideoPlayer();
 
   const [inputUrl, setInputUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [category, setCategory] = useState<'videoclipe' | 'musicas' | 'games' | 'all'>('videoclipe');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +96,6 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClos
       thumbnailUrl: `https://img.youtube.com/vi/${parsed.videoId}/hqdefault.jpg`,
     });
 
-    if (parsed.isShort && !selectedTags.includes('Short')) {
-      setSelectedTags((prev) => [...prev, 'Short']);
-    }
-
     fetchYouTubeMetadata(parsed.videoId, parsed.isShort)
       .then((meta) => {
         if (isMounted) {
@@ -88,12 +120,6 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputUrl.trim()) return;
@@ -102,14 +128,17 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClos
     setError(null);
 
     try {
-      const added = await addYouTubeLink(inputUrl, selectedTags, customTitle, notes);
+      const tags: string[] = [category];
+      if (previewInfo?.isShort) tags.push('Short');
+
+      const added = await addYouTubeLink(inputUrl, tags, customTitle, notes, category);
       setIsLoading(false);
       setInputUrl('');
       setCustomTitle('');
-      setSelectedTags([]);
       setNotes('');
       onClose();
-      // Instantly open the video
+      // Instantly play and open the video
+      playVideo(added);
       openVideoView(added);
     } catch (err: unknown) {
       setIsLoading(false);
@@ -222,27 +251,38 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClos
             />
           </div>
 
-          {/* Tags */}
-          <div className="flex flex-col gap-1.5">
+          {/* Category selection - strictly matching the options in Editar */}
+          <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-zinc-400" />
-              Tags & Categorias
+              <Film className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Categoria do Vídeo:</span>
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {SUGGESTED_TAGS.map((tag) => {
-                const isSelected = selectedTags.includes(tag);
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORY_OPTIONS.map((cat) => {
+                const isSelected = category === cat.id;
                 return (
                   <button
-                    key={tag}
+                    key={cat.id}
                     type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                    onClick={() => setCategory(cat.id)}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#1DB954] text-black font-bold'
-                        : 'bg-[#121212] text-zinc-400 hover:text-white border border-white/5'
+                        ? 'bg-gradient-to-r from-violet-600/30 to-cyan-500/20 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400/40'
+                        : 'bg-[#14121b] border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
                     }`}
                   >
-                    #{tag}
+                    <div className="mt-0.5">{cat.icon}</div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold leading-tight flex items-center gap-1.5">
+                        <span>{cat.label}</span>
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-400 leading-snug mt-0.5">
+                        {cat.desc}
+                      </p>
+                    </div>
                   </button>
                 );
               })}

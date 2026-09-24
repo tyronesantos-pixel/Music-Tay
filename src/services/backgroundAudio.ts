@@ -211,14 +211,26 @@ export function updateMediaSession(track: MediaSessionTrack, handlers?: MediaSes
 }
 
 /**
- * Setup global visibilitychange listener so when the phone screen is locked,
- * we automatically signal the YouTube iframe to keep playing.
+ * Setup global visibilitychange listener so when the phone screen is locked or unlocked,
+ * we keep the YouTube playback active and seamless.
  */
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && isSessionActive) {
-      // Re-trigger play command with staggered timings to counter auto-pause
+      // Screen locked / app hidden: re-trigger play command with staggered timings to counter auto-pause
       [80, 250, 600, 1200].forEach((ms) => {
+        setTimeout(() => {
+          if (isSessionActive) {
+            sendYouTubeIframeCommand('playVideo');
+            if (audioContext && audioContext.state === 'suspended') {
+              audioContext.resume().catch(() => {});
+            }
+          }
+        }, ms);
+      });
+    } else if (!document.hidden && isSessionActive) {
+      // Screen unlocked / app restored: ensure video continues seamlessly from the same spot!
+      [50, 200].forEach((ms) => {
         setTimeout(() => {
           if (isSessionActive) {
             sendYouTubeIframeCommand('playVideo');
@@ -231,3 +243,4 @@ if (typeof document !== 'undefined') {
     }
   });
 }
+

@@ -12,8 +12,9 @@ import {
   Clock,
   RotateCcw,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, ADMIN_EMAIL } from '../../context/AuthContext';
 
 export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -31,6 +32,9 @@ export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }>
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'blocked'>('all');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [deletingUser, setDeletingUser] = useState<{ id: string; email: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showResetAllPrompt, setShowResetAllPrompt] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [isResettingAll, setIsResettingAll] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -65,24 +69,28 @@ export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     }
   };
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!window.confirm(`Tem certeza que deseja remover o usuário ${userEmail}?`)) return;
-    const res = await deleteUserAccount(userId);
-    if (res.success) {
-      setFeedbackMsg({ type: 'success', text: 'Usuário excluído com sucesso.' });
-    } else {
-      setFeedbackMsg({ type: 'error', text: res.error || 'Falha ao excluir usuário.' });
+  const executeDeleteUser = async (userId: string, userEmail: string) => {
+    setIsDeleting(true);
+    setFeedbackMsg(null);
+    try {
+      const res = await deleteUserAccount(userId, userEmail);
+      if (res.success) {
+        setFeedbackMsg({ type: 'success', text: `Usuário "${userEmail}" excluído com sucesso!` });
+        setDeletingUser(null);
+      } else {
+        setFeedbackMsg({ type: 'error', text: res.error || 'Falha ao excluir usuário.' });
+      }
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err?.message || 'Erro inesperado ao excluir usuário.' });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleResetAllUsers = async () => {
-    const confirmPrompt = window.confirm(
-      'ATENÇÃO: Deseja eliminar TODOS os cadastros existentes no banco e manter SOMENTE a sua conta de Admin (tayrone.santos1120@gmail.com)?'
-    );
-    if (!confirmPrompt) return;
-
+  const executeResetAllUsers = async () => {
     setIsResettingAll(true);
     setFeedbackMsg(null);
+    setShowResetAllPrompt(false);
     try {
       const res = await resetAllRegisteredUsers();
       if (res.success) {
@@ -136,7 +144,7 @@ export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }>
           <div className="flex items-center gap-2">
             {/* Reset all button */}
             <button
-              onClick={handleResetAllUsers}
+              onClick={() => setShowResetAllPrompt((prev) => !prev)}
               disabled={isResettingAll}
               title="Resetar e limpar todos os usuários cadastrados (exceto você)"
               className="px-3 py-1.5 rounded-xl bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
@@ -153,6 +161,42 @@ export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             </button>
           </div>
         </div>
+
+        {/* Reset All Confirmation Banner */}
+        {showResetAllPrompt && (
+          <div className="p-4 bg-rose-950/90 border-b border-rose-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-2.5 text-rose-200">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <div>
+                <span className="font-bold text-white block">Atenção: Reset Geral de Usuários</span>
+                <span className="text-rose-200">
+                  Deseja apagar todos os cadastros no banco, mantendo SOMENTE sua conta mestre ({ADMIN_EMAIL})?
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={executeResetAllUsers}
+                disabled={isResettingAll}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-md shadow-rose-900/50"
+              >
+                {isResettingAll ? (
+                  <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>Confirmar Reset Geral</span>
+              </button>
+              <button
+                onClick={() => setShowResetAllPrompt(false)}
+                disabled={isResettingAll}
+                className="px-3 py-1.5 rounded-xl bg-[#221f2f] hover:bg-[#2c283d] text-zinc-300 font-semibold cursor-pointer border border-white/10"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Feedback message banner */}
         {feedbackMsg && (
@@ -357,12 +401,56 @@ export const AdminPanelModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
                       {/* Delete */}
                       <button
-                        onClick={() => handleDeleteUser(item.id, item.email)}
-                        className="p-1.5 rounded-xl bg-[#221f2f] hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 text-xs border border-white/10 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setDeletingUser(
+                            deletingUser?.id === item.id
+                              ? null
+                              : { id: item.id, email: item.email, name: item.name }
+                          );
+                          setEditingUserId(null);
+                        }}
+                        className={`p-1.5 rounded-xl text-xs border transition-colors cursor-pointer ${
+                          deletingUser?.id === item.id
+                            ? 'bg-rose-600 text-white border-rose-500 shadow-sm'
+                            : 'bg-[#221f2f] hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 border-white/10'
+                        }`}
                         title="Excluir conta"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+                  )}
+
+                  {/* Inline Delete Confirmation Card */}
+                  {deletingUser?.id === item.id && (
+                    <div className="w-full mt-2 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+                      <div className="flex items-center gap-2 text-rose-200 text-xs">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>
+                          Deseja excluir definitivamente o usuário <strong>{item.name}</strong> ({item.email})?
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => executeDeleteUser(item.id, item.email)}
+                          disabled={isDeleting}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-rose-900/50 disabled:opacity-50"
+                        >
+                          {isDeleting ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          <span>Sim, Excluir</span>
+                        </button>
+                        <button
+                          onClick={() => setDeletingUser(null)}
+                          disabled={isDeleting}
+                          className="px-3 py-1.5 rounded-xl bg-[#221f2f] hover:bg-[#2b273b] text-zinc-300 text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
                   )}
 

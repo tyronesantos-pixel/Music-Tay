@@ -6,9 +6,12 @@ import {
   Moon,
   ChevronDown,
   Music,
+  SkipForward,
+  SkipBack,
 } from 'lucide-react';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
+import { sendYouTubeIframeCommand } from '../../services/backgroundAudio';
 
 interface FloatingAudioIconProps {
   onOpenPocketMode?: () => void;
@@ -16,7 +19,7 @@ interface FloatingAudioIconProps {
 }
 
 export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPocketMode, isPocketMode = false }) => {
-  const { currentVideo, isPlaying, resume, pause } = useVideoPlayer();
+  const { currentVideo, isPlaying, resume, pause, nextVideo, prevVideo } = useVideoPlayer();
   const { currentView, openVideoView } = useVideoLibrary();
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -32,8 +35,10 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
     e.stopPropagation();
     if (isPlaying) {
       pause();
+      sendYouTubeIframeCommand('pauseVideo');
     } else {
       resume();
+      sendYouTubeIframeCommand('playVideo');
     }
   };
 
@@ -75,10 +80,10 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
     <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+68px)] sm:bottom-6 left-2.5 right-2.5 sm:left-auto sm:right-6 z-40 max-w-sm sm:w-auto animate-in fade-in slide-in-from-bottom-3 duration-200">
       <div
         onClick={handleExplode}
-        className="flex items-center justify-between gap-2.5 p-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-[#16141f]/95 hover:bg-[#1c1926] backdrop-blur-xl border border-violet-500/30 shadow-2xl shadow-black/80 cursor-pointer transition-all group active:scale-[0.99]"
+        className="flex items-center justify-between gap-2 p-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-[#16141f]/95 hover:bg-[#1c1926] backdrop-blur-xl border border-violet-500/30 shadow-2xl shadow-black/80 cursor-pointer transition-all group active:scale-[0.99]"
       >
         {/* Left: Glowing Animated Equalizer */}
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-violet-600/30">
             {isPlaying ? (
               <div className="flex items-end gap-0.5 h-4">
@@ -93,30 +98,28 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
 
           {/* Track info */}
           <div className="min-w-0 flex flex-col">
-            <span className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[180px] group-hover:text-violet-300 transition-colors">
+            <span className="text-xs font-bold text-white truncate max-w-[110px] sm:max-w-[150px] group-hover:text-violet-300 transition-colors">
               {currentVideo.title}
             </span>
-            <span className="text-[10px] text-zinc-400 truncate max-w-[130px] sm:max-w-[180px]">
+            <span className="text-[10px] text-zinc-400 truncate max-w-[110px] sm:max-w-[150px]">
               {currentVideo.channelTitle}
             </span>
           </div>
         </div>
 
         {/* Right: Controls & "Explodir" Button */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Pocket Mode Toggle */}
-          {onOpenPocketMode && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenPocketMode();
-              }}
-              className="p-1.5 rounded-full bg-[#221f2f] hover:bg-[#2e2a3f] text-zinc-400 hover:text-white transition-colors cursor-pointer"
-              title="Modo Bolso (Ouvir com tela 100% preta / sem toques acidentais)"
-            >
-              <Moon className="w-3.5 h-3.5" />
-            </button>
-          )}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Previous Track */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              prevVideo();
+            }}
+            className="p-1.5 rounded-full bg-[#221f2f] hover:bg-[#2e2a3f] text-zinc-300 hover:text-white transition-colors cursor-pointer hidden sm:flex items-center justify-center"
+            title="Clip Anterior"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
 
           {/* Play / Pause Toggle */}
           <button
@@ -126,6 +129,32 @@ export const FloatingAudioIcon: React.FC<FloatingAudioIconProps> = ({ onOpenPock
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
           </button>
+
+          {/* Next Track */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              nextVideo();
+            }}
+            className="p-1.5 rounded-full bg-[#221f2f] hover:bg-[#2e2a3f] text-zinc-300 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+            title="Próximo Clip"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Pocket Mode Toggle */}
+          {onOpenPocketMode && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenPocketMode();
+              }}
+              className="p-1.5 rounded-full bg-[#221f2f] hover:bg-[#2e2a3f] text-zinc-400 hover:text-amber-300 transition-colors cursor-pointer hidden xs:flex"
+              title="Modo Bolso (Ouvir com tela 100% preta / sem toques acidentais)"
+            >
+              <Moon className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* "Explodir" Button */}
           <button

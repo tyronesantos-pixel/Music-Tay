@@ -26,7 +26,7 @@ export const PlaylistsDropdownModal: React.FC<PlaylistsDropdownModalProps> = ({
   onClose,
   onOpenCreatePlaylist,
 }) => {
-  const { collections, openCollection, videos } = useVideoLibrary();
+  const { collections, openCollection, openVideoView, videos } = useVideoLibrary();
   const { playVideo } = useVideoPlayer();
   const [search, setSearch] = useState('');
 
@@ -49,8 +49,13 @@ export const PlaylistsDropdownModal: React.FC<PlaylistsDropdownModalProps> = ({
       .filter((v): v is YouTubeVideo => Boolean(v));
 
     if (playlistVideos.length > 0) {
-      playVideo(playlistVideos[0], playlistVideos.slice(1));
-      openCollection(col.id);
+      const playlistContextObj = {
+        id: col.id,
+        name: col.name,
+        videos: playlistVideos,
+      };
+      playVideo(playlistVideos[0], playlistVideos, playlistContextObj);
+      openVideoView(playlistVideos[0]);
       onClose();
     } else {
       openCollection(col.id);

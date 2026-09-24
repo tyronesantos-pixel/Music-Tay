@@ -50,28 +50,28 @@ export const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
   }> = [
     {
       id: 'videoclipe',
-      label: 'Videoclipe',
+      label: 'Videoclip',
       icon: <Film className="w-4 h-4 text-cyan-400" />,
       desc: 'Clipes oficiais, shows e lançamentos visuais',
       badgeColor: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
     },
     {
       id: 'musicas',
-      label: 'Músicas',
+      label: 'Música',
       icon: <Music className="w-4 h-4 text-violet-400" />,
       desc: 'Músicas completas, álbuns, remixes e áudio',
       badgeColor: 'border-violet-500/40 bg-violet-500/10 text-violet-300',
     },
     {
       id: 'games',
-      label: 'Games',
+      label: 'Game',
       icon: <Gamepad2 className="w-4 h-4 text-emerald-400" />,
       desc: 'Gameplays, trailers, OSTs e momentos de jogos',
       badgeColor: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
     },
     {
       id: 'all',
-      label: 'Misto / Geral',
+      label: 'Misto',
       icon: <Sparkles className="w-4 h-4 text-amber-400" />,
       desc: 'Conteúdo variado e diversos tipos misturados',
       badgeColor: 'border-amber-500/40 bg-amber-500/10 text-amber-300',

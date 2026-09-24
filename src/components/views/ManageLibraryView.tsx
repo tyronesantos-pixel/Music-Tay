@@ -168,7 +168,7 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
       case 'videoclipe':
         return (
           <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-bold">
-            🎬 Videoclipe
+            🎬 Videoclip
           </span>
         );
       case 'musicas':
@@ -373,9 +373,9 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
                           </span>
                           {(
                             [
-                              { id: 'videoclipe', label: '🎬 Videoclipe' },
-                              { id: 'musicas', label: '🎵 Músicas' },
-                              { id: 'games', label: '🎮 Games' },
+                              { id: 'videoclipe', label: '🎬 Videoclip' },
+                              { id: 'musicas', label: '🎵 Música' },
+                              { id: 'games', label: '🎮 Game' },
                               { id: 'all', label: '🌌 Misto' },
                             ] as const
                           ).map((cat) => (
