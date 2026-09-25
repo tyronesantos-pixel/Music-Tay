@@ -64,7 +64,23 @@ export const WatchView: React.FC<WatchViewProps> = ({
   const [showMaximizedControls, setShowMaximizedControls] = useState(true);
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const ytPlayerRef = useRef<any>(null);
+  const isPlayerReadyRef = useRef<boolean>(false);
+  const prevVideoIdRef = useRef<string>(currentVideo?.id || '');
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep fresh refs for callbacks to avoid re-binding player events
+  const autoPlayNextRef = useRef(autoPlayNext);
+  autoPlayNextRef.current = autoPlayNext;
+  const nextVideoRef = useRef(nextVideo);
+  nextVideoRef.current = nextVideo;
+  const currentVideoRef = useRef(currentVideo);
+  currentVideoRef.current = currentVideo;
+  const videosRef = useRef(videos);
+  videosRef.current = videos;
+  const playVideoRef = useRef(playVideo);
+  playVideoRef.current = playVideo;
 
   // Load YouTube IFrame API script once if not already present
   useEffect(() => {
@@ -76,33 +92,49 @@ export const WatchView: React.FC<WatchViewProps> = ({
     }
   }, []);
 
-  // Direct YT.Player binding to capture onStateChange: 0 (ENDED)
+  // Initialize YT.Player ONCE and keep instance alive
   useEffect(() => {
-    let player: any = null;
     let isDisposed = false;
 
     const setupPlayer = () => {
       if (isDisposed) return;
       const iframeEl = document.getElementById('youtube-player-iframe');
       if (!iframeEl) return;
+      if (ytPlayerRef.current) return;
 
       if ((window as any).YT && (window as any).YT.Player) {
         try {
-          player = new (window as any).YT.Player('youtube-player-iframe', {
+          ytPlayerRef.current = new (window as any).YT.Player('youtube-player-iframe', {
             events: {
+              onReady: () => {
+                isPlayerReadyRef.current = true;
+              },
               onStateChange: (event: any) => {
                 // 0 is YT.PlayerState.ENDED
                 if (event.data === 0) {
-                  if (autoPlayNext) {
-                    console.log('[WatchView] Clip finished. Moving to next track (maintaining maximized screen).');
-                    nextVideo();
+                  if (autoPlayNextRef.current) {
+                    console.log('[WatchView] Clip finished. Moving to next track.');
+                    nextVideoRef.current();
                   }
+                }
+                // 1 is YT.PlayerState.PLAYING - catches YouTube native continuous playlist playback
+                if (event.data === 1) {
+                  try {
+                    const videoData = ytPlayerRef.current?.getVideoData?.();
+                    const newId = videoData?.video_id;
+                    if (newId && currentVideoRef.current && newId !== currentVideoRef.current.id) {
+                      const matched = videosRef.current.find((v) => v.id === newId);
+                      if (matched) {
+                        playVideoRef.current(matched);
+                      }
+                    }
+                  } catch (_) {}
                 }
               },
             },
           });
         } catch (err) {
-          console.debug('[WatchView] YT.Player init error:', err);
+          console.debug('[WatchView] YT.Player init notice:', err);
         }
       }
     };
@@ -119,13 +151,63 @@ export const WatchView: React.FC<WatchViewProps> = ({
 
     return () => {
       isDisposed = true;
-      if (player && typeof player.destroy === 'function') {
-        try {
-          player.destroy();
-        } catch (_) {}
-      }
     };
-  }, [currentVideo?.id, autoPlayNext, nextVideo]);
+  }, []);
+
+  // Seamless video change WITHOUT re-mounting the iframe and WITHOUT exiting fullscreen
+  useEffect(() => {
+    if (!currentVideo?.id) return;
+    if (prevVideoIdRef.current === currentVideo.id) return;
+    prevVideoIdRef.current = currentVideo.id;
+
+    // 1. Use official YT.Player loadVideoById if ready
+    if (ytPlayerRef.current && isPlayerReadyRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
+      try {
+        ytPlayerRef.current.loadVideoById({
+          videoId: currentVideo.id,
+          startSeconds: 0,
+        });
+      } catch (err) {
+        console.warn('[WatchView] loadVideoById notice:', err);
+      }
+    }
+
+    // 2. Also send postMessage directly to the iframe
+    // This commands YouTube to load and play the new video without reloading the iframe!
+    if (iframeRef.current?.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({
+            event: 'command',
+            func: 'loadVideoById',
+            args: [currentVideo.id, 0],
+          }),
+          '*'
+        );
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({
+            event: 'command',
+            func: 'playVideo',
+            args: [],
+          }),
+          '*'
+        );
+      } catch (_) {}
+    }
+
+    // 3. Keep full screen active: if the video was in maximized mode, ensure it stays/returns to full screen
+    if (isMaximized) {
+      setIsMaximized(true);
+      const target = playerContainerRef.current || document.documentElement;
+      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+        if (target.requestFullscreen) {
+          target.requestFullscreen().catch(() => {});
+        } else if ((target as any).webkitRequestFullscreen) {
+          (target as any).webkitRequestFullscreen();
+        }
+      }
+    }
+  }, [currentVideo?.id, isMaximized, setIsMaximized]);
 
   // If no video is selected, pick first if available
   useEffect(() => {
@@ -144,7 +226,19 @@ export const WatchView: React.FC<WatchViewProps> = ({
       if (isMaximized) {
         setShowMaximizedControls(false);
       }
-    }, 3500);
+    }, 2500);
+
+    // If maximized is active but native fullscreen dropped on clip switch, re-enter on touch/click
+    if (isMaximized && !document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      const target = playerContainerRef.current;
+      if (target) {
+        if (target.requestFullscreen) {
+          target.requestFullscreen().catch(() => {});
+        } else if ((target as any).webkitRequestFullscreen) {
+          (target as any).webkitRequestFullscreen();
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -166,10 +260,51 @@ export const WatchView: React.FC<WatchViewProps> = ({
       // Enter maximized & fullscreen
       setIsMaximized(true);
       setShowMaximizedControls(true);
-      if (playerContainerRef.current) {
-        toggleFullscreen(playerContainerRef.current);
+      const target = document.documentElement;
+      if (target.requestFullscreen) {
+        target.requestFullscreen().catch(() => {});
+      } else if ((target as any).webkitRequestFullscreen) {
+        (target as any).webkitRequestFullscreen();
       }
     }
+  };
+
+  const handleNext = () => {
+    if (isMaximized && !document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.nextVideo === 'function') {
+      try {
+        ytPlayerRef.current.nextVideo();
+        return;
+      } catch (_) {}
+    }
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'nextVideo', args: [] }),
+        '*'
+      );
+    }
+    nextVideo();
+  };
+
+  const handlePrev = () => {
+    if (isMaximized && !document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.previousVideo === 'function') {
+      try {
+        ytPlayerRef.current.previousVideo();
+        return;
+      } catch (_) {}
+    }
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'previousVideo', args: [] }),
+        '*'
+      );
+    }
+    prevVideo();
   };
 
   if (!currentVideo) {
@@ -200,6 +335,25 @@ export const WatchView: React.FC<WatchViewProps> = ({
     : queue.length > 0
     ? queue
     : videos.filter((v) => v.id !== currentVideo.id);
+
+  const currentPlaylistVideos = isPlaylistActive
+    ? playlistContext!.videos
+    : queue.length > 0
+    ? [currentVideo, ...queue]
+    : [currentVideo, ...videos.filter((v) => v.id !== currentVideo.id)];
+
+  const currentIdx = currentPlaylistVideos.findIndex((v) => v.id === currentVideo.id);
+  const reorderedVideos = currentIdx !== -1
+    ? [
+        ...currentPlaylistVideos.slice(currentIdx),
+        ...currentPlaylistVideos.slice(0, currentIdx),
+      ]
+    : currentPlaylistVideos;
+
+  const playlistParam = reorderedVideos
+    .map((v) => v.id)
+    .slice(0, 50)
+    .join(',');
 
   const currentTrackIndex = isPlaylistActive
     ? playlistContext!.videos.findIndex((v) => v.id === currentVideo.id) + 1
@@ -242,41 +396,49 @@ export const WatchView: React.FC<WatchViewProps> = ({
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const embedUrl = `https://www.youtube.com/embed/${currentVideo.id}?autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(
-    origin
-  )}&playsinline=1&widgetid=1`;
+  const initialEmbedUrlRef = useRef(
+    `https://www.youtube.com/embed/${currentVideo.id}?playlist=${playlistParam}&autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(
+      origin
+    )}&playsinline=1&widgetid=1&loop=1`
+  );
 
   return (
     <div
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}
-      className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8"
+      className={
+        isMaximized
+          ? 'fixed inset-0 z-[9999] w-screen h-[100dvh] bg-black overflow-hidden flex items-center justify-center select-none'
+          : 'flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8'
+      }
     >
-      {/* Back button for mobile */}
-      <div className="flex items-center justify-between sm:hidden">
-        <button
-          onClick={() => setCurrentView(isPlaylistActive ? 'collection' : 'home')}
-          className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white bg-[#1b1825] px-3.5 py-2 rounded-full border border-white/10 active:scale-95 transition-transform"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>{isPlaylistActive ? 'Voltar para Playlist' : 'Voltar para Início'}</span>
-        </button>
+      {/* Back button for mobile - hidden in maximized mode */}
+      {!isMaximized && (
+        <div className="flex items-center justify-between sm:hidden">
+          <button
+            onClick={() => setCurrentView(isPlaylistActive ? 'collection' : 'home')}
+            className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white bg-[#1b1825] px-3.5 py-2 rounded-full border border-white/10 active:scale-95 transition-transform cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{isPlaylistActive ? 'Voltar para Playlist' : 'Voltar para Início'}</span>
+          </button>
 
-        {isPlaylistActive ? (
-          <span className="text-[11px] text-violet-300 font-bold flex items-center gap-1.5 bg-violet-500/15 px-3 py-1 rounded-full border border-violet-500/30 truncate max-w-[180px]">
-            <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className="truncate">{playlistContext?.name}</span>
-          </span>
-        ) : (
-          <span className="text-[11px] text-cyan-400 font-bold flex items-center gap-1.5 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            Reproduzindo
-          </span>
-        )}
-      </div>
+          {isPlaylistActive ? (
+            <span className="text-[11px] text-violet-300 font-bold flex items-center gap-1.5 bg-violet-500/15 px-3 py-1 rounded-full border border-violet-500/30 truncate max-w-[180px]">
+              <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span className="truncate">{playlistContext?.name}</span>
+            </span>
+          ) : (
+            <span className="text-[11px] text-cyan-400 font-bold flex items-center gap-1.5 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              Reproduzindo
+            </span>
+          )}
+        </div>
+      )}
 
-      {/* Playlist Status Banner when isolated playlist is active */}
-      {isPlaylistActive && (
+      {/* Playlist Status Banner when isolated playlist is active - hidden in maximized mode */}
+      {!isMaximized && isPlaylistActive && (
         <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-gradient-to-r from-violet-950/40 via-indigo-950/30 to-[#121019] border border-violet-500/30 text-xs">
           <div className="flex items-center gap-2 truncate">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
@@ -294,10 +456,16 @@ export const WatchView: React.FC<WatchViewProps> = ({
         </div>
       )}
 
-      {/* Cinema / Theater Grid */}
-      <div className={`grid gap-5 sm:gap-6 ${isTheaterMode ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-3'}`}>
+      {/* Cinema / Theater Grid or Fullscreen Container */}
+      <div
+        className={
+          isMaximized
+            ? 'w-full h-full flex items-center justify-center overflow-hidden'
+            : `grid gap-5 sm:gap-6 ${isTheaterMode ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-3'}`
+        }
+      >
         {/* Main Player Column */}
-        <div className={isTheaterMode ? 'w-full' : 'xl:col-span-2'}>
+        <div className={isMaximized ? 'w-full h-full' : (isTheaterMode ? 'w-full' : 'xl:col-span-2')}>
           {/*
             Media Player Container
             When isMaximized is true: container fills 100vw x 100vh with fixed positioning
@@ -305,50 +473,55 @@ export const WatchView: React.FC<WatchViewProps> = ({
           */}
           <div
             ref={playerContainerRef}
-            className={`relative w-full ${
+            className={
               isMaximized
-                ? 'fixed inset-0 z-50 w-screen h-[100dvh] bg-black flex flex-col justify-between overflow-hidden shadow-none rounded-none border-none'
+                ? 'w-full h-full relative bg-black flex items-center justify-center overflow-hidden'
                 : `${
                     currentVideo.isShort ? 'max-w-sm mx-auto aspect-[9/16]' : 'aspect-video'
-                  } bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10`
-            }`}
+                  } bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative`
+            }
           >
-            {/* Top Bar for Maximized Screen Mode */}
+            {/* Sleek Floating Controls Pill in Maximized Mode (Auto-hides on inactivity) */}
             {isMaximized && (
               <div
-                className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-5 bg-gradient-to-b from-black/90 via-black/50 to-transparent flex items-center justify-between transition-opacity duration-300 ${
+                className={`absolute top-4 right-4 z-40 flex items-center gap-2 transition-opacity duration-300 ${
                   showMaximizedControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0 pr-4">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                  <div className="min-w-0">
-                    <h3 className="text-xs sm:text-base font-bold text-white truncate drop-shadow">
-                      {currentVideo.title}
-                    </h3>
-                    <p className="text-[10px] sm:text-xs text-zinc-300 truncate drop-shadow">
-                      {currentVideo.channelTitle} {isPlaylistActive && `• ${playlistContext?.name}`}
-                    </p>
-                  </div>
-                </div>
+                <button
+                  onClick={handlePrev}
+                  className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-black/75 hover:bg-black/95 backdrop-blur-md text-white text-xs font-semibold border border-white/20 flex items-center gap-1.5 shadow-2xl cursor-pointer active:scale-95 transition-all"
+                  title="Clip Anterior"
+                >
+                  <SkipBack className="w-4 h-4" />
+                  <span className="hidden sm:inline">Anterior</span>
+                </button>
 
-                {/* Exit Maximized Mode Button */}
+                <button
+                  onClick={handleNext}
+                  className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-black/75 hover:bg-black/95 backdrop-blur-md text-white text-xs font-semibold border border-white/20 flex items-center gap-1.5 shadow-2xl cursor-pointer active:scale-95 transition-all"
+                  title="Próximo Clip"
+                >
+                  <span className="hidden sm:inline">Próximo</span>
+                  <SkipForward className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={handleToggleMaximize}
-                  className="px-3.5 py-2 rounded-full bg-black/80 hover:bg-black/95 text-white font-bold text-xs flex items-center gap-1.5 border border-white/20 shadow-xl cursor-pointer active:scale-95 shrink-0"
-                  title="Sair da Tela Cheia / Minimizar (Pressione para sair)"
+                  className="px-3.5 py-1.5 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-xs flex items-center gap-1.5 border border-cyan-300 shadow-2xl cursor-pointer active:scale-95 transition-all"
+                  title="Sair da Tela Cheia / Minimizar"
                 >
-                  <Minimize2 className="w-4 h-4 text-cyan-400" />
-                  <span className="hidden sm:inline">Minimizar</span>
+                  <Minimize2 className="w-4 h-4 text-black stroke-[2.5]" />
+                  <span>Minimizar</span>
                 </button>
               </div>
             )}
 
-            {/* YouTube Iframe Player */}
+            {/* YouTube Iframe Player - KEPT MOUNTED WITHOUT KEY FOR SEAMLESS CONTINUOUS PLAYBACK */}
             <iframe
+              ref={iframeRef}
               id="youtube-player-iframe"
-              key={currentVideo.id}
-              src={embedUrl}
+              src={initialEmbedUrlRef.current}
               title={currentVideo.title}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
@@ -366,237 +539,185 @@ export const WatchView: React.FC<WatchViewProps> = ({
                 } catch (_) {}
               }}
             />
+          </div>
 
-            {/* Floating Maximized Overlay Controls Bar (Hover / Touch) */}
-            {isMaximized && (
-              <div
-                className={`absolute bottom-0 inset-x-0 z-30 p-3 sm:p-5 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-between gap-3 transition-opacity duration-300 ${
-                  showMaximizedControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-              >
-                <div className="flex items-center gap-2">
+          {/* Video Metadata & Controls - hidden in maximized mode */}
+          {!isMaximized && (
+            <div className="mt-3.5 flex flex-col gap-3">
+              <div>
+                <h1 className="text-sm sm:text-xl font-bold text-white leading-tight">
+                  {currentVideo.title}
+                </h1>
+                <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 flex-wrap">
+                  <span className="text-violet-400 font-semibold">{currentVideo.channelTitle}</span>
+                  <span>•</span>
+                  <span>Sincronizado na Nuvem</span>
+                  {currentVideo.duration > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>{formatDuration(currentVideo.duration)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons with Primary & Secondary Controls (Fully Responsive on Mobile) */}
+              <div className="flex flex-col gap-2.5">
+                {/* Row 1: Primary Playback & Maximized Screen Controls */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Prev Clip */}
                   <button
-                    onClick={prevVideo}
-                    className="p-2.5 rounded-full bg-black/80 hover:bg-black text-white border border-white/20 active:scale-95 cursor-pointer"
+                    onClick={handlePrev}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-200 hover:text-white text-xs font-semibold transition-all active:scale-95 cursor-pointer border border-white/10"
                     title="Clip Anterior"
                   >
-                    <SkipBack className="w-5 h-5" />
+                    <SkipBack className="w-4 h-4" />
+                    <span>Anterior</span>
                   </button>
 
+                  {/* Skip / Next Clip */}
                   <button
-                    onClick={() => (isPlaying ? pause() : resume())}
-                    className="p-3 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold active:scale-95 cursor-pointer shadow-lg shadow-cyan-500/30"
-                    title={isPlaying ? 'Pausar' : 'Reproduzir'}
+                    onClick={handleNext}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md shadow-violet-600/30"
+                    title="Pular para o próximo clipe da fila"
                   >
-                    {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
+                    <span>Próximo Clip</span>
+                    <SkipForward className="w-4 h-4" />
                   </button>
 
-                  <button
-                    onClick={nextVideo}
-                    className="p-2.5 rounded-full bg-black/80 hover:bg-black text-white border border-white/20 active:scale-95 cursor-pointer"
-                    title="Próximo Clip"
-                  >
-                    <SkipForward className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleLike(currentVideo.id)}
-                    className={`p-2.5 rounded-full border border-white/20 active:scale-95 cursor-pointer ${
-                      isLiked ? 'bg-rose-600 text-white' : 'bg-black/80 text-white'
-                    }`}
-                    title={isLiked ? 'Curtido' : 'Curtir'}
-                  >
-                    <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                  </button>
-
+                  {/* Maximizar / Tela Cheia (Requirement 2: Stays Maximized on next clip) */}
                   <button
                     onClick={handleToggleMaximize}
-                    className="p-2.5 rounded-full bg-black/80 hover:bg-black text-white border border-white/20 active:scale-95 cursor-pointer"
-                    title="Minimizar Tela Cheia"
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer border shadow-sm ${
+                      isMaximized
+                        ? 'bg-cyan-500 text-black border-cyan-400'
+                        : 'bg-[#201c2b] hover:bg-[#2b263b] text-cyan-300 hover:text-white border-cyan-500/30'
+                    }`}
+                    title="Maximizar tela cheia (permanece maximizado durante toda a reprodução)"
                   >
-                    <Minimize2 className="w-5 h-5 text-cyan-400" />
+                    {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    <span>{isMaximized ? 'Minimizar' : 'Tela Cheia'}</span>
+                  </button>
+
+                  {/* Like */}
+                  <button
+                    onClick={() => toggleLike(currentVideo.id)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                      isLiked
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                    <span>{isLiked ? 'Curtido' : 'Curtir'}</span>
+                  </button>
+
+                  {/* Add to Playlist */}
+                  <button
+                    onClick={() => onOpenCollectionModal(currentVideo.id)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-300 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
+                    title="Adicionar à Playlist"
+                  >
+                    <FolderPlus className="w-4 h-4 text-cyan-400" />
+                    <span>Playlist</span>
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Video Metadata & Controls */}
-          <div className="mt-3.5 flex flex-col gap-3">
-            <div>
-              <h1 className="text-sm sm:text-xl font-bold text-white leading-tight">
-                {currentVideo.title}
-              </h1>
-              <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 flex-wrap">
-                <span className="text-violet-400 font-semibold">{currentVideo.channelTitle}</span>
-                <span>•</span>
-                <span>Sincronizado na Nuvem</span>
-                {currentVideo.duration > 0 && (
-                  <>
-                    <span>•</span>
-                    <span>{formatDuration(currentVideo.duration)}</span>
-                  </>
-                )}
-              </div>
-            </div>
+                {/* Row 2: Secondary Features & Tools */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Pocket Mode / Modo Bolso */}
+                  {onOpenPocketMode && (
+                    <button
+                      onClick={onOpenPocketMode}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-amber-300 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-amber-500/20"
+                      title="Modo Bolso (Ouvir com tela apagada / economia de bateria)"
+                    >
+                      <Moon className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Modo Bolso</span>
+                    </button>
+                  )}
 
-            {/* Action Buttons with Primary & Secondary Controls (Fully Responsive on Mobile) */}
-            <div className="flex flex-col gap-2.5">
-              {/* Row 1: Primary Playback & Maximized Screen Controls */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Prev Clip */}
-                <button
-                  onClick={prevVideo}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-200 hover:text-white text-xs font-semibold transition-all active:scale-95 cursor-pointer border border-white/10"
-                  title="Clip Anterior"
-                >
-                  <SkipBack className="w-4 h-4" />
-                  <span>Anterior</span>
-                </button>
+                  {/* Lock Screen Help / Guide */}
+                  {onOpenGuideModal && (
+                    <button
+                      onClick={onOpenGuideModal}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-violet-400 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
+                      title="Dicas para tocar com tela bloqueada"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-violet-400" />
+                      <span>Dicas Tela Bloqueada</span>
+                    </button>
+                  )}
 
-                {/* Skip / Next Clip */}
-                <button
-                  onClick={nextVideo}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md shadow-violet-600/30"
-                  title="Pular para o próximo clipe da fila"
-                >
-                  <span>Próximo Clip</span>
-                  <SkipForward className="w-4 h-4" />
-                </button>
-
-                {/* Maximizar / Tela Cheia (Requirement 2: Stays Maximized on next clip) */}
-                <button
-                  onClick={handleToggleMaximize}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all active:scale-95 cursor-pointer border shadow-sm ${
-                    isMaximized
-                      ? 'bg-cyan-500 text-black border-cyan-400'
-                      : 'bg-[#201c2b] hover:bg-[#2b263b] text-cyan-300 hover:text-white border-cyan-500/30'
-                  }`}
-                  title="Maximizar tela cheia (permanece maximizado durante toda a reprodução)"
-                >
-                  {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                  <span>{isMaximized ? 'Minimizar' : 'Tela Cheia'}</span>
-                </button>
-
-                {/* Like */}
-                <button
-                  onClick={() => toggleLike(currentVideo.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
-                    isLiked
-                      ? 'bg-rose-600 text-white shadow-md'
-                      : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                  <span>{isLiked ? 'Curtido' : 'Curtir'}</span>
-                </button>
-
-                {/* Add to Playlist */}
-                <button
-                  onClick={() => onOpenCollectionModal(currentVideo.id)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-300 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
-                  title="Adicionar à Playlist"
-                >
-                  <FolderPlus className="w-4 h-4 text-cyan-400" />
-                  <span>Playlist</span>
-                </button>
-              </div>
-
-              {/* Row 2: Secondary Features & Tools */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Pocket Mode / Modo Bolso */}
-                {onOpenPocketMode && (
+                  {/* Theater Toggle (Desktop) */}
                   <button
-                    onClick={onOpenPocketMode}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-amber-300 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-amber-500/20"
-                    title="Modo Bolso (Ouvir com tela apagada / economia de bateria)"
+                    onClick={toggleTheater}
+                    className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                      isTheaterMode
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
+                    }`}
+                    title="Modo Cinema"
                   >
-                    <Moon className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Modo Bolso</span>
+                    <Tv className="w-3.5 h-3.5" />
+                    <span>Cinema</span>
                   </button>
-                )}
 
-                {/* Lock Screen Help / Guide */}
-                {onOpenGuideModal && (
+                  {/* Sync Video Data */}
                   <button
-                    onClick={onOpenGuideModal}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-violet-400 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
-                    title="Dicas para tocar com tela bloqueada"
+                    onClick={handleSyncCurrent}
+                    disabled={isSyncingCurrent}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-400 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
+                    title="Atualizar dados do vídeo com YouTube"
                   >
-                    <Smartphone className="w-3.5 h-3.5 text-violet-400" />
-                    <span>Dicas Tela Bloqueada</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCurrent ? 'animate-spin text-cyan-400' : ''}`} />
+                    <span>Atualizar</span>
                   </button>
-                )}
 
-                {/* Theater Toggle (Desktop) */}
-                <button
-                  onClick={toggleTheater}
-                  className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                    isTheaterMode
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white border border-white/5'
-                  }`}
-                  title="Modo Cinema"
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                  <span>Cinema</span>
-                </button>
-
-                {/* Sync Video Data */}
-                <button
-                  onClick={handleSyncCurrent}
-                  disabled={isSyncingCurrent}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-cyan-400 text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
-                  title="Atualizar dados do vídeo com YouTube"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCurrent ? 'animate-spin text-cyan-400' : ''}`} />
-                  <span>Atualizar</span>
-                </button>
-
-                {/* Share Link */}
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
-                  title="Copiar Link"
-                >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Share2 className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Copiado!' : 'Compartilhar'}</span>
-                </button>
-
-                {/* Direct Link on YouTube */}
-                <a
-                  href={currentVideo.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-rose-400 text-xs font-semibold transition-colors border border-white/5"
-                  title="Abrir no YouTube"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>YouTube</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Tags */}
-            {currentVideo.tags.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                {currentVideo.tags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2.5 py-0.5 rounded-full bg-[#201c2b] text-zinc-300 text-[11px] border border-white/5"
+                  {/* Share Link */}
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-white text-xs font-semibold transition-colors active:scale-95 cursor-pointer border border-white/5"
+                    title="Copiar Link"
                   >
-                    #{tag}
-                  </span>
-                ))}
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-cyan-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? 'Copiado!' : 'Compartilhar'}</span>
+                  </button>
+
+                  {/* Direct Link on YouTube */}
+                  <a
+                    href={currentVideo.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#201c2b] hover:bg-[#2b263b] text-zinc-300 hover:text-rose-400 text-xs font-semibold transition-colors border border-white/5"
+                    title="Abrir no YouTube"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>YouTube</span>
+                  </a>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Tags */}
+              {currentVideo.tags.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  {currentVideo.tags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-0.5 rounded-full bg-[#201c2b] text-zinc-300 text-[11px] border border-white/5"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Up Next Column - ISOLATED to active playlist when playing playlist */}
-        <div className="flex flex-col gap-3">
+        {/* Up Next Column - ISOLATED to active playlist when playing playlist - hidden in maximized mode */}
+        {!isMaximized && (
+          <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between pb-1.5 border-b border-white/5">
             <h2 className="text-sm font-bold text-white flex items-center gap-2 truncate">
               <Layers className="w-4 h-4 text-cyan-400 shrink-0" />
@@ -683,6 +804,7 @@ export const WatchView: React.FC<WatchViewProps> = ({
             </div>
           )}
         </div>
+      )}
       </div>
     </div>
   );

@@ -181,13 +181,32 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsFullscreen(active);
       if (active) {
         setIsMaximized(true);
+        isMaximizedRef.current = true;
+      }
+      // CRITICAL: Do NOT set isMaximized(false) here!
+      // When a clip finishes or switches, YouTube or the browser temporarily fires
+      // fullscreenchange with active=false. Dropping isMaximized here was kicking
+      // the user out of full screen!
+      // The user must remain in full screen until they explicitly minimize or press ESC.
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMaximizedRef.current) {
+        setIsMaximized(false);
+        isMaximizedRef.current = false;
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
       }
     };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
