@@ -84,8 +84,11 @@ export const PocketModeOverlay: React.FC<PocketModeOverlayProps> = ({ isOpen, on
         >
           <button
             onClick={() => {
-              if (isPlaying) pause();
-              else resume();
+              if (isPlaying) {
+                pause();
+              } else {
+                resume();
+              }
             }}
             className="w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 hover:border-violet-500 flex items-center justify-center text-white hover:text-cyan-400 transition-colors cursor-pointer"
           >

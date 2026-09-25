@@ -99,7 +99,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             key={index}
             onClick={() => (item.onClick ? item.onClick() : setCurrentView(item.id))}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-lg transition-all cursor-pointer touch-manipulation active:scale-95 ${
               isActive ? 'text-violet-400' : 'text-zinc-400 hover:text-white'
             }`}
           >

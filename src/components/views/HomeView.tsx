@@ -1,5 +1,15 @@
 import React from 'react';
-import { Plus, Layers, Cloud, Youtube, Music, Film, Gamepad2, Sparkles, User } from 'lucide-react';
+import {
+  Plus,
+  Layers,
+  Cloud,
+  Youtube,
+  Music,
+  Film,
+  Gamepad2,
+  Sparkles,
+  User,
+} from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
 import { useAuth } from '../../context/AuthContext';
@@ -14,20 +24,16 @@ interface HomeViewProps {
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onOpenAddModal,
-  onOpenSyncModal,
   onOpenCollectionModal,
 }) => {
   const {
     videos,
     searchQuery,
     selectedTag,
-    setSelectedTag,
     categoryFilter,
     setCategoryFilter,
     setCurrentView,
-    isCloudConnected,
   } = useVideoLibrary();
-  const { playVideo } = useVideoPlayer();
   const { user } = useAuth();
 
   const categories: Array<{
@@ -112,7 +118,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold mb-3">
           <User className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Espaço Privado: {user?.name || 'Novo Usuário'}</span>
+          <span>Espaço Privado: {user?.name || 'Usuário'}</span>
         </div>
 
         <h2 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">
@@ -123,7 +129,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </h2>
 
         <p className="text-xs sm:text-sm text-zinc-400 max-w-sm mb-6 leading-relaxed">
-          Tudo o que você adicionar ou organizar fica salvo exclusivamente na sua conta na nuvem, sem interferir no conteúdo de outras pessoas.
+          Cole links do YouTube para salvar clipes, músicas e vídeos na sua conta com sincronização em nuvem em tempo real.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs">
@@ -134,37 +140,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Adicionar Link do YouTube</span>
           </button>
-
-          <button
-            onClick={() => setCurrentView('manage')}
-            className="w-full py-2.5 px-4 rounded-full bg-[#1e1b29] hover:bg-[#272335] text-zinc-300 hover:text-white font-semibold text-xs border border-white/10 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Layers className="w-4 h-4 text-violet-400" />
-            <span>Gerenciar Biblioteca</span>
-          </button>
         </div>
 
         <div className="mt-8 flex items-center gap-2 text-[11px] text-zinc-400 bg-[#16141f] px-4 py-2 rounded-full border border-violet-500/20 shadow-md">
           <Cloud className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Sincronização Pessoal Isolada na Nuvem</span>
+          <span>Sincronização Permanente e Exclusão Segura</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-6 flex flex-col gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
       {/* Category Pills Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Clean Category Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto">
           {categories.map((cat) => {
             const isSelected = categoryFilter === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => setCategoryFilter(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 active:scale-95 ${
                   isSelected
                     ? 'bg-gradient-to-r from-violet-600 to-cyan-500 text-white shadow-md shadow-violet-600/25'
                     : 'bg-[#1b1825] hover:bg-[#242132] text-zinc-300 hover:text-white border border-white/5'
@@ -178,7 +176,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
 
         {/* Counter and Library Link */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-zinc-400">
+        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-zinc-400 shrink-0">
           <span>{filteredVideos.length} vídeo(s)</span>
           <button
             onClick={() => setCurrentView('manage')}
@@ -197,7 +195,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Youtube className="w-10 h-10 text-zinc-600 mb-2" />
             <h3 className="text-sm font-bold text-white mb-1">Nenhum vídeo nesta categoria</h3>
             <p className="text-xs text-zinc-400 mb-4">
-              Adicione links com a tag desta categoria ou troque de filtro.
+              Adicione links com a tag desta categoria ou selecione outro filtro.
             </p>
             <button
               onClick={onOpenAddModal}

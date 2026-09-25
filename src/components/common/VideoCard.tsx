@@ -20,8 +20,8 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   onOpenCollectionModal,
   showDelete = true,
 }) => {
-  const { currentVideo, isPlaying, playVideo, likedVideoIds, toggleLike } = useVideoPlayer();
-  const { openVideoView, deleteVideo, syncVideoById } = useVideoLibrary();
+  const { currentVideo, isPlaying, playVideo, selectTrackFromPlaylist, likedVideoIds, toggleLike } = useVideoPlayer();
+  const { openVideoView, deleteVideo, syncVideoById, updateCollection } = useVideoLibrary();
   const [isHovered, setIsHovered] = useState(false);
   const [isSyncingThis, setIsSyncingThis] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -31,7 +31,13 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    playVideo(video, queueContext, playlistContext);
+    if (playlistContext && playlistContext.videos.length > 0) {
+      selectTrackFromPlaylist(video, playlistContext, (playlistId, newVideoIds) => {
+        updateCollection(playlistId, { videoIds: newVideoIds });
+      });
+    } else {
+      playVideo(video, queueContext, playlistContext);
+    }
     openVideoView(video);
   };
 
@@ -188,10 +194,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
                 <button
                   type="button"
                   onClick={handleDeleteClick}
-                  className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                  className="p-1.5 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
                   title="Excluir Vídeo da Biblioteca"
                 >
-                  <Trash2 className="w-3 h-3" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
 
@@ -200,10 +206,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="p-1 text-zinc-400 hover:text-rose-400 transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-rose-400 transition-colors"
                 title="Abrir no YouTube"
               >
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
           </div>
@@ -216,7 +222,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
         title="Excluir Vídeo"
-        message={`Tem certeza que deseja remover "${video.title}" da sua biblioteca? Esta alteração será sincronizada na sua nuvem.`}
+        message={`Tem certeza que deseja remover "${video.title}" da sua biblioteca? Esta alteração será permanentemente excluída.`}
         confirmLabel="Sim, Excluir"
       />
     </>

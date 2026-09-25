@@ -55,7 +55,10 @@ const CATEGORY_OPTIONS: Array<{
   },
 ];
 
-export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({ isOpen, onClose }) => {
+export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const { addYouTubeLink, openVideoView } = useVideoLibrary();
   const { playVideo } = useVideoPlayer();
 

@@ -8,7 +8,6 @@ import {
   updateMediaSession,
 } from '../services/backgroundAudio';
 import { useAuth } from './AuthContext';
-import { VideoLibraryContext } from './VideoLibraryContext';
 
 interface WatchHistoryItem {
   videoId: string;
@@ -27,6 +26,7 @@ interface VideoPlayerContextType {
   autoPlayNext: boolean;
   isTheaterMode: boolean;
   isFullscreen: boolean;
+  isMaximized: boolean;
   isMiniPlayer: boolean;
   likedVideoIds: Set<string>;
   savedVideoIds: Set<string>;
@@ -39,6 +39,12 @@ interface VideoPlayerContextType {
     newQueue?: YouTubeVideo[],
     context?: PlaylistContextInfo | null
   ) => void;
+  selectTrackFromPlaylist: (
+    selectedVideo: YouTubeVideo,
+    context?: PlaylistContextInfo | null,
+    onPlaylistOrderChanged?: (playlistId: string, newVideoIds: string[]) => void
+  ) => void;
+  removeDeletedTrack: (videoId: string) => void;
   pause: () => void;
   resume: () => void;
   nextVideo: () => void;
@@ -46,6 +52,7 @@ interface VideoPlayerContextType {
   toggleAutoPlayNext: () => void;
   toggleTheater: () => void;
   toggleFullscreen: (element?: HTMLElement | null) => void;
+  setIsMaximized: (max: boolean) => void;
   toggleLike: (videoId: string) => void;
   toggleSave: (videoId: string) => void;
   addToQueue: (video: YouTubeVideo) => void;
@@ -53,7 +60,6 @@ interface VideoPlayerContextType {
   clearQueue: () => void;
   setIsMiniPlayer: (mini: boolean) => void;
   setIsPlaying: (playing: boolean) => void;
-  libraryVideos: YouTubeVideo[];
 }
 
 const VideoPlayerContext = createContext<VideoPlayerContextType | null>(null);
@@ -61,10 +67,6 @@ const VideoPlayerContext = createContext<VideoPlayerContextType | null>(null);
 export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const currentUserId = user?.email?.toLowerCase().trim() || user?.id || 'guest';
-
-  // Read video library from parent VideoLibraryContext safely
-  const libraryCtx = useContext(VideoLibraryContext);
-  const libraryVideos = libraryCtx?.videos || [];
 
   // Per-user isolated storage keys
   const USER_LIKED_KEY = `tyrone_player_liked_${currentUserId}`;
@@ -75,6 +77,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
   const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isMaximized, setIsMaximized] = useState<boolean>(false);
   const [isMiniPlayer, setIsMiniPlayer] = useState<boolean>(false);
   const [queue, setQueue] = useState<YouTubeVideo[]>([]);
   const [playlistContext, setPlaylistContext] = useState<PlaylistContextInfo | null>(null);
@@ -104,8 +107,8 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   currentVideoRef.current = currentVideo;
   const queueRef = useRef(queue);
   queueRef.current = queue;
-  const libraryVideosRef = useRef(libraryVideos);
-  libraryVideosRef.current = libraryVideos;
+  const isMaximizedRef = useRef(isMaximized);
+  isMaximizedRef.current = isMaximized;
 
   // Reload likes and history when user changes and fetch cloud backup
   useEffect(() => {
@@ -172,10 +175,20 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Fullscreen listener
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const active = Boolean(
+        document.fullscreenElement || (document as any).webkitFullscreenElement
+      );
+      setIsFullscreen(active);
+      if (active) {
+        setIsMaximized(true);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
 
   const pause = useCallback(() => {
@@ -188,6 +201,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     startBackgroundAudioSession();
   }, []);
 
+  // Normal / sequential playback
   const playVideo = useCallback(
     (
       video: YouTubeVideo,
@@ -195,6 +209,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       context?: PlaylistContextInfo | null
     ) => {
       setCurrentVideo(video);
+      currentVideoRef.current = video;
       setIsPlaying(true);
 
       if (context !== undefined) {
@@ -237,11 +252,130 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     [USER_HISTORY_KEY, pause, resume]
   );
 
+  /**
+   * Manual track selection from playlist (Requirement 3):
+   * When user is playing song A and manually clicks song C directly from playlist:
+   * 1. Song A is removed from its current position and sent to the END of the list.
+   * 2. Song C becomes the current song playing (at the end).
+   * 3. Order becomes: [other songs in original order, A, C (tocando)].
+   * 4. Zero duplications, consistent order across multiple selections.
+   */
+  const selectTrackFromPlaylist = useCallback(
+    (
+      selectedVideo: YouTubeVideo,
+      context?: PlaylistContextInfo | null,
+      onPlaylistOrderChanged?: (playlistId: string, newVideoIds: string[]) => void
+    ) => {
+      const activeCtx = context || playlistContextRef.current;
+      const curVideo = currentVideoRef.current;
+
+      if (!activeCtx || activeCtx.videos.length <= 1 || !curVideo || curVideo.id === selectedVideo.id) {
+        playVideo(selectedVideo, activeCtx?.videos.filter((v) => v.id !== selectedVideo.id), activeCtx);
+        return;
+      }
+
+      const all = activeCtx.videos;
+      const curId = curVideo.id;
+      const selId = selectedVideo.id;
+
+      const hasCur = all.some((v) => v.id === curId);
+      const hasSel = all.some((v) => v.id === selId);
+
+      if (!hasCur || !hasSel) {
+        // Not both in playlist, play normally
+        playVideo(selectedVideo, all.filter((v) => v.id !== selectedVideo.id), activeCtx);
+        return;
+      }
+
+      // Filter out both old playing song and new selected song, maintaining order
+      const otherVideos = all.filter((v) => v.id !== curId && v.id !== selId);
+      const prevPlaying = all.find((v) => v.id === curId)!;
+      const selected = all.find((v) => v.id === selId) || selectedVideo;
+
+      // Reordered list: [other songs in order, previous playing song, selected song]
+      const reorderedList = [...otherVideos, prevPlaying, selected];
+
+      const updatedCtx: PlaylistContextInfo = {
+        id: activeCtx.id,
+        name: activeCtx.name,
+        videos: reorderedList,
+      };
+
+      setPlaylistContext(updatedCtx);
+      playlistContextRef.current = updatedCtx;
+
+      // Queue is all tracks in the playlist other than the currently playing one
+      const remainingQueue = reorderedList.filter((v) => v.id !== selected.id);
+
+      playVideo(selected, remainingQueue, updatedCtx);
+
+      // Persist new order in collection database if callback provided
+      if (onPlaylistOrderChanged && activeCtx.id) {
+        onPlaylistOrderChanged(
+          activeCtx.id,
+          reorderedList.map((v) => v.id)
+        );
+      }
+    },
+    [playVideo]
+  );
+
+  /**
+   * Purge deleted track from active player context (Requirement 5)
+   */
+  const removeDeletedTrack = useCallback(
+    (videoId: string) => {
+      // 1. If currently playing this deleted video, advance to next track or pause
+      if (currentVideoRef.current?.id === videoId) {
+        const nextInQueue = queueRef.current.find((v) => v.id !== videoId);
+        if (nextInQueue) {
+          playVideo(nextInQueue);
+        } else {
+          pause();
+          setCurrentVideo(null);
+          currentVideoRef.current = null;
+        }
+      }
+
+      // 2. Remove from queue
+      setQueue((prev) => {
+        const filtered = prev.filter((v) => v.id !== videoId);
+        queueRef.current = filtered;
+        return filtered;
+      });
+
+      // 3. Remove from playlist context
+      setPlaylistContext((prev) => {
+        if (!prev) return null;
+        const filtered = prev.videos.filter((v) => v.id !== videoId);
+        const updated = { ...prev, videos: filtered };
+        playlistContextRef.current = updated;
+        return updated;
+      });
+
+      // 4. Remove from likes
+      setLikedVideoIds((prev) => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
+
+      // 5. Remove from watch history
+      setWatchHistory((prev) => {
+        const filtered = prev.filter((h) => h.videoId !== videoId);
+        realTimeSave(USER_HISTORY_KEY, filtered);
+        return filtered;
+      });
+    },
+    [USER_HISTORY_KEY, pause, playVideo]
+  );
+
+  // Next Video: sequential continuous loop inside playlist or queue
   const nextVideo = useCallback(() => {
     const currentCtx = playlistContextRef.current;
     const curVideo = currentVideoRef.current;
 
-    // 1. Strict Playlist Isolation: only play videos from this playlist in order
+    // 1. Strict Playlist Isolation: loop sequentially through the playlist
     if (currentCtx && currentCtx.videos.length > 0) {
       const all = currentCtx.videos;
       const idx = all.findIndex((v) => v.id === curVideo?.id);
@@ -249,11 +383,10 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (idx !== -1 && idx + 1 < all.length) {
         nextIndex = idx + 1;
       } else {
-        // Continuous playlist loop back to clip #1
+        // Continuous playlist loop back to start
         nextIndex = 0;
       }
       const nextVid = all[nextIndex];
-      // Filter remaining queue strictly from this playlist
       const nextQueue = all.filter((_, i) => i !== nextIndex);
       playVideo(nextVid, nextQueue, currentCtx);
       return;
@@ -265,22 +398,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const next = currentQ[0];
       const rest = currentQ.slice(1);
       playVideo(next, rest, null);
-      return;
-    }
-
-    // 3. User Library sequential playback fallback
-    const library = libraryVideosRef.current;
-    if (library && library.length > 0) {
-      const idx = library.findIndex((v) => v.id === curVideo?.id);
-      let nextIndex = 0;
-      if (idx !== -1 && idx + 1 < library.length) {
-        nextIndex = idx + 1;
-      } else {
-        nextIndex = 0;
-      }
-      const nextVid = library[nextIndex];
-      const nextQueue = library.filter((_, i) => i !== nextIndex);
-      playVideo(nextVid, nextQueue, null);
     }
   }, [playVideo]);
 
@@ -288,7 +405,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const currentCtx = playlistContextRef.current;
     const curVideo = currentVideoRef.current;
 
-    // 1. Strict Playlist Isolation: navigate backwards only within this playlist
     if (currentCtx && currentCtx.videos.length > 0) {
       const all = currentCtx.videos;
       const idx = all.findIndex((v) => v.id === curVideo?.id);
@@ -306,19 +422,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (currentQ.length > 0) {
       const last = currentQ[currentQ.length - 1];
       playVideo(last, currentQ.slice(0, -1), null);
-      return;
-    }
-
-    const library = libraryVideosRef.current;
-    if (library && library.length > 0) {
-      const idx = library.findIndex((v) => v.id === curVideo?.id);
-      let prevIndex = library.length - 1;
-      if (idx > 0) {
-        prevIndex = idx - 1;
-      }
-      const prevVid = library[prevIndex];
-      const nextQueue = library.filter((_, i) => i !== prevIndex);
-      playVideo(prevVid, nextQueue, null);
     }
   }, [playVideo]);
 
@@ -329,7 +432,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   prevVideoRef.current = prevVideo;
 
   // Global YouTube postMessage listener for ended events
-  // This automatically jumps to the next clip in the playlist when the current clip finishes
+  // When a track finishes, automatically jumps to next track in playlist/queue
   useEffect(() => {
     let lastHandledTime = 0;
 
@@ -338,11 +441,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (!event.data) return;
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-        // YouTube player events indicating track finish:
-        // 1. onStateChange with info === 0 (YT.PlayerState.ENDED)
-        // 2. infoDelivery with playerState === 0
-        // 3. stateChange event with data === 0
-        // 4. near-end progress: currentTime within 0.75s of duration
         const isEnded =
           (data?.event === 'onStateChange' &&
             (data?.info === 0 || data?.info?.playerState === 0 || data?.data === 0)) ||
@@ -372,7 +470,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     window.addEventListener('message', handleWindowMessage);
 
-    // Keep YouTube iframes actively reporting their state by posting listening handshake periodically
     const handshakeInterval = setInterval(() => {
       if (typeof document !== 'undefined') {
         const iframes = document.querySelectorAll('iframe');
@@ -405,11 +502,29 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const toggleFullscreen = useCallback((element?: HTMLElement | null) => {
-    if (!document.fullscreenElement) {
+    const isCurrentlyFullscreen = Boolean(
+      document.fullscreenElement || (document as any).webkitFullscreenElement
+    );
+
+    if (!isCurrentlyFullscreen) {
       const target = element || document.documentElement;
-      target.requestFullscreen().catch(console.warn);
+      if (target.requestFullscreen) {
+        target.requestFullscreen().catch(console.warn);
+      } else if ((target as any).webkitRequestFullscreen) {
+        (target as any).webkitRequestFullscreen();
+      }
+      setIsFullscreen(true);
+      setIsMaximized(true);
+      isMaximizedRef.current = true;
     } else {
-      document.exitFullscreen().catch(console.warn);
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(console.warn);
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+      setIsFullscreen(false);
+      setIsMaximized(false);
+      isMaximizedRef.current = false;
     }
   }, []);
 
@@ -457,6 +572,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         autoPlayNext,
         isTheaterMode,
         isFullscreen,
+        isMaximized,
         isMiniPlayer,
         likedVideoIds,
         savedVideoIds,
@@ -465,6 +581,8 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         playlistContext,
         setPlaylistContext,
         playVideo,
+        selectTrackFromPlaylist,
+        removeDeletedTrack,
         pause,
         resume,
         nextVideo,
@@ -472,6 +590,7 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         toggleAutoPlayNext,
         toggleTheater,
         toggleFullscreen,
+        setIsMaximized,
         toggleLike,
         toggleSave,
         addToQueue,
@@ -479,7 +598,6 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         clearQueue,
         setIsMiniPlayer,
         setIsPlaying,
-        libraryVideos,
       }}
     >
       {children}

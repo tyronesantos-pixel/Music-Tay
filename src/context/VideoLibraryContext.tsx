@@ -14,10 +14,12 @@ import {
   deleteCloudVideo,
   deleteCloudCollection,
 } from '../services/cloudDatabase';
-import { realTimeLoad, realTimeSave, STORAGE_KEYS } from '../services/dbStorage';
+import { realTimeLoad, realTimeSave, realTimeRemove, STORAGE_KEYS } from '../services/dbStorage';
 import { useAuth } from './AuthContext';
+import { useVideoPlayer } from './VideoPlayerContext';
 
 interface VideoLibraryContextType {
+  currentUserId: string;
   videos: YouTubeVideo[];
   collections: YouTubeCollection[];
   channels: YouTubeChannelItem[];
@@ -94,46 +96,73 @@ function deriveChannels(videoList: YouTubeVideo[]): YouTubeChannelItem[] {
   }));
 }
 
-function loadInitialVideos(userKey: string): YouTubeVideo[] {
-  const userVideos = realTimeLoad<YouTubeVideo[]>(userKey, []);
-  if (Array.isArray(userVideos) && userVideos.length > 0) return userVideos;
-  const legacyVideos = realTimeLoad<YouTubeVideo[]>(STORAGE_KEYS.VIDEOS, []);
-  if (Array.isArray(legacyVideos) && legacyVideos.length > 0) {
-    realTimeSave(userKey, legacyVideos);
-    return legacyVideos;
+function loadInitialVideos(userKey: string, deletedSet: Set<string>): YouTubeVideo[] {
+  const userVideos = realTimeLoad<YouTubeVideo[] | null>(userKey, null);
+  if (userVideos !== null && Array.isArray(userVideos)) {
+    return userVideos.filter((v) => !deletedSet.has(v.id));
+  }
+  const legacyVideos = realTimeLoad<YouTubeVideo[] | null>(STORAGE_KEYS.VIDEOS, null);
+  if (legacyVideos !== null && Array.isArray(legacyVideos) && legacyVideos.length > 0) {
+    const filtered = legacyVideos.filter((v) => !deletedSet.has(v.id));
+    realTimeSave(userKey, filtered);
+    return filtered;
   }
   return [];
 }
 
-function loadInitialCollections(userKey: string): YouTubeCollection[] {
-  const userColls = realTimeLoad<YouTubeCollection[]>(userKey, []);
-  if (Array.isArray(userColls) && userColls.length > 0) return userColls;
-  const legacyColls = realTimeLoad<YouTubeCollection[]>(STORAGE_KEYS.COLLECTIONS, []);
-  if (Array.isArray(legacyColls) && legacyColls.length > 0) {
-    realTimeSave(userKey, legacyColls);
-    return legacyColls;
+function loadInitialCollections(userKey: string, deletedSet: Set<string>): YouTubeCollection[] {
+  const userColls = realTimeLoad<YouTubeCollection[] | null>(userKey, null);
+  if (userColls !== null && Array.isArray(userColls)) {
+    return userColls.filter((c) => !deletedSet.has(c.id));
+  }
+  const legacyColls = realTimeLoad<YouTubeCollection[] | null>(STORAGE_KEYS.COLLECTIONS, null);
+  if (legacyColls !== null && Array.isArray(legacyColls) && legacyColls.length > 0) {
+    const filtered = legacyColls.filter((c) => !deletedSet.has(c.id));
+    realTimeSave(userKey, filtered);
+    return filtered;
   }
   return [];
 }
 
 export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  // Guaranteed clean, isolated identifier for the user account
+  const { removeDeletedTrack } = useVideoPlayer();
+
+  // Clean identifier for the user account
   const currentUserId = user?.email?.toLowerCase().trim() || user?.id || 'guest';
 
   // Per-user isolated storage keys
   const USER_VIDEOS_KEY = `tyrone_usr_videos_${currentUserId}`;
   const USER_COLLECTIONS_KEY = `tyrone_usr_colls_${currentUserId}`;
+  const USER_DELETED_VIDEOS_KEY = `tyrone_deleted_videos_v4_${currentUserId}`;
+  const USER_DELETED_COLLS_KEY = `tyrone_deleted_colls_v4_${currentUserId}`;
 
-  // Initial state strictly scoped to this user with legacy fallback
+  // Helper to load combined global + user deleted tombstones
+  const getCombinedDeletedVideos = useCallback(() => {
+    const globalList = realTimeLoad<string[]>(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, []);
+    const userList = realTimeLoad<string[]>(USER_DELETED_VIDEOS_KEY, []);
+    return new Set([...globalList, ...userList]);
+  }, [USER_DELETED_VIDEOS_KEY]);
+
+  const getCombinedDeletedColls = useCallback(() => {
+    const globalList = realTimeLoad<string[]>(STORAGE_KEYS.GLOBAL_DELETED_COLLS, []);
+    const userList = realTimeLoad<string[]>(USER_DELETED_COLLS_KEY, []);
+    return new Set([...globalList, ...userList]);
+  }, [USER_DELETED_COLLS_KEY]);
+
+  // Persistent tombstones so deleted items can NEVER be resurrected
+  const deletedVideoIdsRef = useRef<Set<string>>(getCombinedDeletedVideos());
+  const deletedCollectionIdsRef = useRef<Set<string>>(getCombinedDeletedColls());
+
+  // Initial state strictly scoped to this user
   const [videos, setVideos] = useState<YouTubeVideo[]>(() =>
-    loadInitialVideos(USER_VIDEOS_KEY)
+    loadInitialVideos(USER_VIDEOS_KEY, deletedVideoIdsRef.current)
   );
   const [collections, setCollections] = useState<YouTubeCollection[]>(() =>
-    loadInitialCollections(USER_COLLECTIONS_KEY)
+    loadInitialCollections(USER_COLLECTIONS_KEY, deletedCollectionIdsRef.current)
   );
   const [channels, setChannels] = useState<YouTubeChannelItem[]>(() =>
-    deriveChannels(loadInitialVideos(USER_VIDEOS_KEY))
+    deriveChannels(loadInitialVideos(USER_VIDEOS_KEY, deletedVideoIdsRef.current))
   );
 
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
@@ -157,17 +186,22 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   videosRef.current = videos;
   collectionsRef.current = collections;
 
-  // 1. When the logged-in user changes, immediately switch local state to their personal storage
+  // 1. When the logged-in user changes, reload tombstones and user storage
   useEffect(() => {
-    const loadedVideos = loadInitialVideos(USER_VIDEOS_KEY);
-    const loadedCollections = loadInitialCollections(USER_COLLECTIONS_KEY);
+    const combinedDeleted = getCombinedDeletedVideos();
+    const combinedColls = getCombinedDeletedColls();
+    deletedVideoIdsRef.current = combinedDeleted;
+    deletedCollectionIdsRef.current = combinedColls;
+
+    const loadedVideos = loadInitialVideos(USER_VIDEOS_KEY, deletedVideoIdsRef.current);
+    const loadedCollections = loadInitialCollections(USER_COLLECTIONS_KEY, deletedCollectionIdsRef.current);
     videosRef.current = loadedVideos;
     collectionsRef.current = loadedCollections;
     setVideos(loadedVideos);
     setCollections(loadedCollections);
     setChannels(deriveChannels(loadedVideos));
     setActiveCollectionId(null);
-  }, [currentUserId, USER_VIDEOS_KEY, USER_COLLECTIONS_KEY]);
+  }, [currentUserId, USER_VIDEOS_KEY, USER_COLLECTIONS_KEY, getCombinedDeletedVideos, getCombinedDeletedColls]);
 
   // 2. Real-time Cloud Subscription dedicated strictly to this user
   useEffect(() => {
@@ -175,48 +209,55 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const unsubscribe = subscribeToUserCloudLibrary(
       currentUserId,
-      ({ videos: cloudVideos, collections: cloudCollections, isFreshInit }) => {
+      ({ videos: cloudVideos, collections: cloudCollections, deletedVideoIds: cloudDeleted, isFreshInit }) => {
         if (isFreshInit) {
-          // Cloud document does not exist yet!
-          // NEVER wipe local data! Instead, initialize the cloud document with local items.
-          const currentLocalVideos = videosRef.current;
-          const currentLocalCollections = collectionsRef.current;
+          // Cloud document does not exist yet for this new user: initialize from local
+          const currentLocalVideos = videosRef.current.filter((v) => !deletedVideoIdsRef.current.has(v.id));
+          const currentLocalCollections = collectionsRef.current.filter((c) => !deletedCollectionIdsRef.current.has(c.id));
           if (currentLocalVideos.length > 0 || currentLocalCollections.length > 0) {
-            saveUserCloudLibrary(currentUserId, currentLocalVideos, currentLocalCollections).catch(console.warn);
+            saveUserCloudLibrary(currentUserId, currentLocalVideos, currentLocalCollections, {
+              deletedVideoIds: Array.from(deletedVideoIdsRef.current),
+            }).catch(console.warn);
           }
           setIsCloudConnected(true);
           return;
         }
 
-        // Cloud document exists!
-        // Merge cloud videos with any locally added videos that may not have synced yet
-        const cloudVideoIds = new Set(cloudVideos.map((v) => v.id));
-        const unsyncedLocalVideos = videosRef.current.filter((v) => !cloudVideoIds.has(v.id));
-        const resolvedVideos = [...cloudVideos, ...unsyncedLocalVideos];
+        // Merge cloud deleted IDs into local tombstones
+        if (Array.isArray(cloudDeleted) && cloudDeleted.length > 0) {
+          cloudDeleted.forEach((id) => deletedVideoIdsRef.current.add(id));
+          const combinedArr = Array.from(deletedVideoIdsRef.current);
+          realTimeSave(USER_DELETED_VIDEOS_KEY, combinedArr);
+          realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, combinedArr);
+        }
 
-        const cloudCollIds = new Set(cloudCollections.map((c) => c.id));
-        const unsyncedLocalColls = collectionsRef.current.filter((c) => !cloudCollIds.has(c.id));
-        const resolvedCollections = [...cloudCollections, ...unsyncedLocalColls];
+        // Filter OUT any video that has been deleted!
+        const validCloudVideos = cloudVideos.filter((v) => !deletedVideoIdsRef.current.has(v.id));
 
-        videosRef.current = resolvedVideos;
-        collectionsRef.current = resolvedCollections;
+        // Filter OUT any collection that has been deleted!
+        const validCloudColls = cloudCollections.filter((c) => !deletedCollectionIdsRef.current.has(c.id));
 
-        setVideos(resolvedVideos);
-        setCollections(resolvedCollections);
-        setChannels(deriveChannels(resolvedVideos));
+        // Cloud is the master source of truth
+        videosRef.current = validCloudVideos;
+        collectionsRef.current = validCloudColls;
 
-        // Save locally to both per-user key and global fallback keys
-        realTimeSave(USER_VIDEOS_KEY, resolvedVideos);
-        realTimeSave(STORAGE_KEYS.VIDEOS, resolvedVideos);
-        realTimeSave(USER_COLLECTIONS_KEY, resolvedCollections);
-        realTimeSave(STORAGE_KEYS.COLLECTIONS, resolvedCollections);
+        setVideos(validCloudVideos);
+        setCollections(validCloudColls);
+        setChannels(deriveChannels(validCloudVideos));
+
+        // Sync to local storage
+        realTimeSave(USER_VIDEOS_KEY, validCloudVideos);
+        realTimeSave(STORAGE_KEYS.VIDEOS, validCloudVideos);
+        realTimeSave(USER_COLLECTIONS_KEY, validCloudColls);
 
         setIsCloudConnected(true);
         setCloudError(null);
 
-        // If there were unsynced items, sync them back to cloud immediately
-        if (unsyncedLocalVideos.length > 0 || unsyncedLocalColls.length > 0) {
-          saveUserCloudLibrary(currentUserId, resolvedVideos, resolvedCollections).catch(console.warn);
+        // If cloud had any deleted item that was filtered out, update Firestore to keep it 100% clean
+        if (validCloudVideos.length < cloudVideos.length || validCloudColls.length < cloudCollections.length) {
+          saveUserCloudLibrary(currentUserId, validCloudVideos, validCloudColls, {
+            deletedVideoIds: Array.from(deletedVideoIdsRef.current),
+          }).catch(console.warn);
         }
       },
       (error) => {
@@ -228,24 +269,30 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       unsubscribe();
     };
-  }, [currentUserId, USER_VIDEOS_KEY, USER_COLLECTIONS_KEY]);
+  }, [currentUserId, USER_VIDEOS_KEY, USER_COLLECTIONS_KEY, USER_DELETED_VIDEOS_KEY]);
 
   // Helper to persist current user's library in cloud & local
   const persistUserLibrary = useCallback(
     async (newVideos: YouTubeVideo[], newCollections: YouTubeCollection[]) => {
-      videosRef.current = newVideos;
-      collectionsRef.current = newCollections;
+      // Filter out any accidentally remaining deleted items
+      const cleanVideos = newVideos.filter((v) => !deletedVideoIdsRef.current.has(v.id));
+      const cleanCollections = newCollections.filter((c) => !deletedCollectionIdsRef.current.has(c.id));
+
+      videosRef.current = cleanVideos;
+      collectionsRef.current = cleanCollections;
 
       // 1. Instant local persistence (localStorage + IndexedDB)
-      realTimeSave(USER_VIDEOS_KEY, newVideos);
-      realTimeSave(STORAGE_KEYS.VIDEOS, newVideos);
-      realTimeSave(USER_COLLECTIONS_KEY, newCollections);
-      realTimeSave(STORAGE_KEYS.COLLECTIONS, newCollections);
+      realTimeSave(USER_VIDEOS_KEY, cleanVideos);
+      realTimeSave(STORAGE_KEYS.VIDEOS, cleanVideos);
+      realTimeSave(USER_COLLECTIONS_KEY, cleanCollections);
+      realTimeSave(STORAGE_KEYS.COLLECTIONS, cleanCollections);
 
       // 2. Real-time cloud persistence
       if (currentUserId && currentUserId !== 'guest') {
         try {
-          await saveUserCloudLibrary(currentUserId, newVideos, newCollections);
+          await saveUserCloudLibrary(currentUserId, cleanVideos, cleanCollections, {
+            deletedVideoIds: Array.from(deletedVideoIdsRef.current),
+          });
           setIsCloudConnected(true);
           setCloudError(null);
         } catch (err) {
@@ -259,12 +306,13 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Sync All Videos with YouTube Metadata
   const syncAllVideos = useCallback(async () => {
-    if (videos.length === 0) return;
+    if (videosRef.current.length === 0) return;
     setIsSyncing(true);
 
     try {
       const updatedList: YouTubeVideo[] = [];
-      for (const video of videos) {
+      for (const video of videosRef.current) {
+        if (deletedVideoIdsRef.current.has(video.id)) continue;
         const synced = await syncSingleYouTubeVideo(video);
         updatedList.push({ ...synced, userId: currentUserId });
       }
@@ -277,7 +325,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } finally {
       setIsSyncing(false);
     }
-  }, [videos, currentUserId, persistUserLibrary]);
+  }, [currentUserId, persistUserLibrary]);
 
   // Periodic Auto-Sync Timer
   useEffect(() => {
@@ -291,7 +339,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => clearInterval(timer);
   }, [autoSyncEnabled, syncIntervalMinutes, syncAllVideos, videos.length]);
 
-  // Add YouTube Link: personal to this user only
+  // Add YouTube Link
   const addYouTubeLink = useCallback(
     async (
       input: string,
@@ -304,6 +352,14 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       if (!parsed.videoId) {
         throw new Error('Link do YouTube inválido. Cole uma URL do youtube.com, youtu.be ou /shorts/.');
+      }
+
+      // If user explicitly re-adds this ID, unmark from tombstones
+      if (deletedVideoIdsRef.current.has(parsed.videoId)) {
+        deletedVideoIdsRef.current.delete(parsed.videoId);
+        const arr = Array.from(deletedVideoIdsRef.current);
+        realTimeSave(USER_DELETED_VIDEOS_KEY, arr);
+        realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, arr);
       }
 
       // Check if already in this user's library
@@ -353,12 +409,22 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       return newVideo;
     },
-    [currentUserId, persistUserLibrary]
+    [currentUserId, persistUserLibrary, USER_DELETED_VIDEOS_KEY]
   );
 
+  /**
+   * Permanent, irreversible deletion (Requirement 5)
+   * Wipes the item completely from all storage tiers, Firestore, and memory.
+   */
   const deleteVideo = useCallback(
     async (videoId: string) => {
-      deleteCloudVideo(videoId).catch(console.warn);
+      // 1. Mark in permanent tombstones (both user key and global key)
+      deletedVideoIdsRef.current.add(videoId);
+      const tombstoneArr = Array.from(deletedVideoIdsRef.current);
+      realTimeSave(USER_DELETED_VIDEOS_KEY, tombstoneArr);
+      realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, tombstoneArr);
+
+      // 2. Remove from active videos list and all playlist associations
       const nextVideos = videosRef.current.filter((v) => v.id !== videoId);
       const nextCollections = collectionsRef.current.map((c) => ({
         ...c,
@@ -370,15 +436,55 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setVideos(nextVideos);
       setCollections(nextCollections);
       setChannels(deriveChannels(nextVideos));
+
+      // 3. Purge from active player context (queue, history, likes, and current track)
+      removeDeletedTrack(videoId);
+
+      // 4. Update all local storage keys immediately
+      realTimeSave(USER_VIDEOS_KEY, nextVideos);
+      realTimeSave(STORAGE_KEYS.VIDEOS, nextVideos);
+      realTimeSave(USER_COLLECTIONS_KEY, nextCollections);
+      realTimeSave(STORAGE_KEYS.COLLECTIONS, nextCollections);
+
+      // Also clean guest key if present
+      try {
+        const guestVideos = realTimeLoad<YouTubeVideo[] | null>('tyrone_usr_videos_guest', null);
+        if (guestVideos && Array.isArray(guestVideos)) {
+          realTimeSave('tyrone_usr_videos_guest', guestVideos.filter((v) => v.id !== videoId));
+        }
+      } catch (_) {}
+
+      // 5. Delete individual video record from Firestore
+      deleteCloudVideo(videoId).catch(console.warn);
+
+      // 6. Update master cloud library document with tombstones
       await persistUserLibrary(nextVideos, nextCollections);
     },
-    [persistUserLibrary]
+    [
+      persistUserLibrary,
+      removeDeletedTrack,
+      USER_DELETED_VIDEOS_KEY,
+      USER_VIDEOS_KEY,
+      USER_COLLECTIONS_KEY,
+    ]
   );
 
   const bulkDeleteVideos = useCallback(
     async (videoIds: string[]) => {
-      videoIds.forEach((id) => deleteCloudVideo(id).catch(console.warn));
+      if (videoIds.length === 0) return;
       const idSet = new Set(videoIds);
+
+      // 1. Mark in permanent tombstones
+      videoIds.forEach((id) => {
+        deletedVideoIdsRef.current.add(id);
+        deleteCloudVideo(id).catch(console.warn);
+        removeDeletedTrack(id);
+      });
+      const tombstoneArr = Array.from(deletedVideoIdsRef.current);
+      realTimeSave(USER_DELETED_VIDEOS_KEY, tombstoneArr);
+      realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, tombstoneArr);
+
+      // 2. Remove from active videos list and playlists
       const nextVideos = videosRef.current.filter((v) => !idSet.has(v.id));
       const nextCollections = collectionsRef.current.map((c) => ({
         ...c,
@@ -390,26 +496,61 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setVideos(nextVideos);
       setCollections(nextCollections);
       setChannels(deriveChannels(nextVideos));
+
+      // 3. Update localStorage
+      realTimeSave(USER_VIDEOS_KEY, nextVideos);
+      realTimeSave(STORAGE_KEYS.VIDEOS, nextVideos);
+      realTimeSave(USER_COLLECTIONS_KEY, nextCollections);
+      realTimeSave(STORAGE_KEYS.COLLECTIONS, nextCollections);
+
       await persistUserLibrary(nextVideos, nextCollections);
     },
-    [persistUserLibrary]
+    [
+      persistUserLibrary,
+      removeDeletedTrack,
+      USER_DELETED_VIDEOS_KEY,
+      USER_VIDEOS_KEY,
+      USER_COLLECTIONS_KEY,
+    ]
   );
 
   const clearAllVideos = useCallback(async () => {
-    videosRef.current.forEach((v) => deleteCloudVideo(v.id).catch(console.warn));
-    const nextVideos: YouTubeVideo[] = [];
+    // 1. Mark all existing IDs in permanent tombstones
+    videosRef.current.forEach((v) => {
+      deletedVideoIdsRef.current.add(v.id);
+      deleteCloudVideo(v.id).catch(console.warn);
+      removeDeletedTrack(v.id);
+    });
+    const tombstoneArr = Array.from(deletedVideoIdsRef.current);
+    realTimeSave(USER_DELETED_VIDEOS_KEY, tombstoneArr);
+    realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_VIDEOS, tombstoneArr);
+
+    // 2. Empty videos & clear playlist references
     const nextCollections = collectionsRef.current.map((c) => ({
       ...c,
       videoIds: [],
     }));
 
-    videosRef.current = nextVideos;
+    videosRef.current = [];
     collectionsRef.current = nextCollections;
-    setVideos(nextVideos);
+    setVideos([]);
     setCollections(nextCollections);
     setChannels([]);
-    await persistUserLibrary(nextVideos, nextCollections);
-  }, [persistUserLibrary]);
+
+    // 3. Clear both user storage and global storage
+    realTimeSave(USER_VIDEOS_KEY, []);
+    realTimeSave(STORAGE_KEYS.VIDEOS, []);
+    realTimeSave(USER_COLLECTIONS_KEY, nextCollections);
+    realTimeSave(STORAGE_KEYS.COLLECTIONS, nextCollections);
+
+    await persistUserLibrary([], nextCollections);
+  }, [
+    USER_DELETED_VIDEOS_KEY,
+    USER_VIDEOS_KEY,
+    USER_COLLECTIONS_KEY,
+    removeDeletedTrack,
+    persistUserLibrary,
+  ]);
 
   const updateVideo = useCallback(
     async (videoId: string, updates: Partial<YouTubeVideo>) => {
@@ -445,8 +586,17 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       category?: 'all' | 'musicas' | 'videoclipe' | 'games',
       color?: string
     ): Promise<YouTubeCollection> => {
+      const newColId = `col_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+      if (deletedCollectionIdsRef.current.has(newColId)) {
+        deletedCollectionIdsRef.current.delete(newColId);
+        const arr = Array.from(deletedCollectionIdsRef.current);
+        realTimeSave(USER_DELETED_COLLS_KEY, arr);
+        realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_COLLS, arr);
+      }
+
       const newCol: YouTubeCollection = {
-        id: `col_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        id: newColId,
         name,
         description: description || '',
         category: category || 'all',
@@ -464,7 +614,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       return newCol;
     },
-    [currentUserId, persistUserLibrary]
+    [currentUserId, persistUserLibrary, USER_DELETED_COLLS_KEY]
   );
 
   const updateCollection = useCallback(
@@ -483,10 +633,19 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const deleteCollection = useCallback(
     async (id: string) => {
+      // 1. Mark in permanent tombstones
+      deletedCollectionIdsRef.current.add(id);
+      const tombstoneArr = Array.from(deletedCollectionIdsRef.current);
+      realTimeSave(USER_DELETED_COLLS_KEY, tombstoneArr);
+      realTimeSave(STORAGE_KEYS.GLOBAL_DELETED_COLLS, tombstoneArr);
       deleteCloudCollection(id).catch(console.warn);
+
+      // 2. Remove from active collections
       const nextCollections = collectionsRef.current.filter((col) => col.id !== id);
       collectionsRef.current = nextCollections;
       setCollections(nextCollections);
+      realTimeSave(USER_COLLECTIONS_KEY, nextCollections);
+      realTimeSave(STORAGE_KEYS.COLLECTIONS, nextCollections);
 
       if (activeCollectionId === id) {
         setCurrentView('home');
@@ -495,7 +654,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       await persistUserLibrary(videosRef.current, nextCollections);
     },
-    [activeCollectionId, persistUserLibrary]
+    [activeCollectionId, persistUserLibrary, USER_DELETED_COLLS_KEY, USER_COLLECTIONS_KEY]
   );
 
   const addVideoToCollection = useCallback(
@@ -557,7 +716,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [persistUserLibrary]
   );
 
-  const openVideoView = useCallback((video: YouTubeVideo) => {
+  const openVideoView = useCallback((_video: YouTubeVideo) => {
     setCurrentView('watch');
   }, []);
 
@@ -571,9 +730,9 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       version: 1,
       exportedAt: new Date().toISOString(),
       user: currentUserId,
-      videos,
-      collections,
-      channels,
+      videos: videosRef.current,
+      collections: collectionsRef.current,
+      channels: deriveChannels(videosRef.current),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -582,19 +741,23 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     a.download = `player_tyrone_${currentUserId}_backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [videos, collections, channels, currentUserId]);
+  }, [currentUserId]);
 
   const importLibrary = useCallback(
     async (jsonString: string): Promise<boolean> => {
       try {
         const data = JSON.parse(jsonString);
         if (data && Array.isArray(data.videos)) {
-          const newVideos: YouTubeVideo[] = data.videos.map((v: any) => ({
-            ...v,
-            userId: currentUserId,
-          }));
+          const newVideos: YouTubeVideo[] = data.videos
+            .filter((v: any) => !deletedVideoIdsRef.current.has(v.id))
+            .map((v: any) => ({
+              ...v,
+              userId: currentUserId,
+            }));
           const newCollections: YouTubeCollection[] = Array.isArray(data.collections)
-            ? data.collections.map((c: any) => ({ ...c, userId: currentUserId }))
+            ? data.collections
+                .filter((c: any) => !deletedCollectionIdsRef.current.has(c.id))
+                .map((c: any) => ({ ...c, userId: currentUserId }))
             : [];
 
           videosRef.current = newVideos;
@@ -616,6 +779,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <VideoLibraryContext.Provider
       value={{
+        currentUserId,
         videos,
         collections,
         channels,

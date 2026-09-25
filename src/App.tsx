@@ -207,11 +207,11 @@ const AuthenticatedApp: React.FC = () => {
   }
 
   return (
-    <VideoLibraryProvider>
-      <VideoPlayerProvider>
+    <VideoPlayerProvider>
+      <VideoLibraryProvider>
         <MainLayout />
-      </VideoPlayerProvider>
-    </VideoLibraryProvider>
+      </VideoLibraryProvider>
+    </VideoPlayerProvider>
   );
 };
 

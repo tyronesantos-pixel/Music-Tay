@@ -27,6 +27,7 @@ export interface CloudSubscriptionPayload {
   collections: YouTubeCollection[];
   likedVideoIds?: string[];
   watchHistory?: any[];
+  deletedVideoIds?: string[];
   isFreshInit: boolean;
 }
 
@@ -82,6 +83,7 @@ export function subscribeToUserCloudLibrary(
         const rawCollections = Array.isArray(data.collections) ? data.collections : [];
         const rawLikes = Array.isArray(data.likedVideoIds) ? data.likedVideoIds : [];
         const rawHistory = Array.isArray(data.watchHistory) ? data.watchHistory : [];
+        const rawDeleted = Array.isArray(data.deletedVideoIds) ? data.deletedVideoIds : [];
 
         // Strict mapping & guarantee of userId ownership
         const videos: YouTubeVideo[] = rawVideos.map((v: any) => ({
@@ -123,6 +125,7 @@ export function subscribeToUserCloudLibrary(
           collections,
           likedVideoIds: rawLikes.map(String),
           watchHistory: rawHistory,
+          deletedVideoIds: rawDeleted.map(String),
           isFreshInit: false,
         });
       },
@@ -148,7 +151,7 @@ export async function saveUserCloudLibrary(
   userId: string,
   videos: YouTubeVideo[],
   collections: YouTubeCollection[],
-  extra?: { likedVideoIds?: string[]; watchHistory?: any[] }
+  extra?: { likedVideoIds?: string[]; watchHistory?: any[]; deletedVideoIds?: string[] }
 ): Promise<void> {
   if (!userId) return;
 
@@ -160,6 +163,7 @@ export async function saveUserCloudLibrary(
     const cleanCollections = cleanForFirestore(collections);
     const cleanLikes = cleanForFirestore(extra?.likedVideoIds || []);
     const cleanHistory = cleanForFirestore(extra?.watchHistory || []);
+    const cleanDeleted = cleanForFirestore(extra?.deletedVideoIds || []);
 
     // 1. Save master user library document
     await setDoc(
@@ -170,6 +174,7 @@ export async function saveUserCloudLibrary(
         collections: cleanCollections,
         likedVideoIds: cleanLikes,
         watchHistory: cleanHistory,
+        deletedVideoIds: cleanDeleted,
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
