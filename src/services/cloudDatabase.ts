@@ -165,7 +165,7 @@ export async function saveUserCloudLibrary(
     const cleanHistory = cleanForFirestore(extra?.watchHistory || []);
     const cleanDeleted = cleanForFirestore(extra?.deletedVideoIds || []);
 
-    // 1. Save master user library document
+    // 1. Save master user library document (Single atomic write - quota friendly)
     await setDoc(
       docRef,
       {
@@ -179,22 +179,12 @@ export async function saveUserCloudLibrary(
       },
       { merge: true }
     );
-
-    // 2. Synchronize individual video records for universal discovery
-    const videoWritePromises = videos.slice(0, 100).map((v) => {
-      const vRef = doc(db, VIDEOS_COLLECTION, v.id);
-      return setDoc(vRef, cleanForFirestore({ ...v, userId: cleanUserId }), { merge: true }).catch(() => {});
-    });
-
-    // 3. Synchronize individual collection records
-    const collectionWritePromises = collections.map((c) => {
-      const cRef = doc(db, COLLECTIONS_COLLECTION, c.id);
-      return setDoc(cRef, cleanForFirestore({ ...c, userId: cleanUserId }), { merge: true }).catch(() => {});
-    });
-
-    await Promise.allSettled([...videoWritePromises, ...collectionWritePromises]);
-  } catch (err) {
-    console.error('[CloudDatabase] Error saving user cloud library:', err);
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota limit exceeded')) {
+      console.warn('[CloudDatabase] Firestore quota limit reached. Data is safely cached locally in IndexedDB/LocalStorage.');
+    } else {
+      console.error('[CloudDatabase] Error saving user cloud library:', err);
+    }
   }
 }
 

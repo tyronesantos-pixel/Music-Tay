@@ -8,6 +8,8 @@ import {
   collection,
   onSnapshot,
   getDocs,
+  isFirestoreQuotaExceeded,
+  recordFirestoreQuotaExceeded,
 } from '../lib/firebase';
 
 export type UserRole = 'admin' | 'user';
@@ -95,26 +97,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Guarantee Master Admin exists in Cloud Firestore
-        const adminDocId = sanitizeDocId(ADMIN_EMAIL);
-        const adminRef = doc(db, USERS_COLLECTION, adminDocId);
-        
-        const masterAdminData: StoredAccount = {
-          id: 'admin_tayrone_master',
-          name: 'Tyrone Santos (Admin)',
-          nameLower: 'tyrone santos (admin)',
-          email: ADMIN_EMAIL.toLowerCase(),
-          username: 'tayrone',
-          role: 'admin',
-          accessStatus: 'approved',
-          passwordHash: hashPassword(ADMIN_INITIAL_PASS),
-          plainPassword: ADMIN_INITIAL_PASS,
-          createdAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString(),
-        };
+        // Guarantee Master Admin exists in Cloud Firestore if quota is available
+        if (!isFirestoreQuotaExceeded()) {
+          const adminDocId = sanitizeDocId(ADMIN_EMAIL);
+          const adminRef = doc(db, USERS_COLLECTION, adminDocId);
+          
+          const masterAdminData: StoredAccount = {
+            id: 'admin_tayrone_master',
+            name: 'Tyrone Santos (Admin)',
+            nameLower: 'tyrone santos (admin)',
+            email: ADMIN_EMAIL.toLowerCase(),
+            username: 'tayrone',
+            role: 'admin',
+            accessStatus: 'approved',
+            passwordHash: hashPassword(ADMIN_INITIAL_PASS),
+            plainPassword: ADMIN_INITIAL_PASS,
+            createdAt: new Date().toISOString(),
+            lastLoginAt: new Date().toISOString(),
+          };
 
-        // Write/update master admin record
-        await setDoc(adminRef, masterAdminData, { merge: true }).catch(() => {});
+          // Write/update master admin record
+          await setDoc(adminRef, masterAdminData, { merge: true }).catch((err: any) => {
+            const msg = String(err?.message || err || '');
+            if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+              recordFirestoreQuotaExceeded();
+            }
+          });
+        }
       } catch (e) {
         console.warn('[Auth] Init auth warning:', e);
       } finally {
@@ -127,6 +136,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 2. Real-time Subscription to Users collection (Real-time live updates)
   useEffect(() => {
+    // If quota is exceeded, populate users from local accounts cache without querying Firestore
+    if (isFirestoreQuotaExceeded()) {
+      const localAccs = getLocalAccounts();
+      const list: UserProfile[] = localAccs.map((acc) => ({
+        id: acc.id,
+        name: acc.name,
+        email: acc.email,
+        role: acc.role,
+        accessStatus: acc.accessStatus,
+        createdAt: acc.createdAt,
+        lastLoginAt: acc.lastLoginAt,
+      }));
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setUsersList(list);
+      return;
+    }
+
     try {
       const colRef = collection(db, USERS_COLLECTION);
       const unsubscribe = onSnapshot(
@@ -168,8 +194,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         },
-        (err) => {
-          console.warn('[Auth] Realtime users subscription error:', err);
+        (err: any) => {
+          const msg = String(err?.message || err || '');
+          if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+            recordFirestoreQuotaExceeded();
+          }
+          console.warn('[Auth] Realtime users subscription notice:', err);
+          const localAccs = getLocalAccounts();
+          setUsersList(localAccs.map((a) => ({
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            role: a.role,
+            accessStatus: a.accessStatus,
+            createdAt: a.createdAt,
+            lastLoginAt: a.lastLoginAt,
+          })));
         }
       );
       return () => unsubscribe();
@@ -236,22 +276,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(adminUser);
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminUser));
 
-        // Ensure record in Cloud Firestore is in sync
-        const adminDocId = sanitizeDocId(ADMIN_EMAIL);
-        setDoc(
-          doc(db, USERS_COLLECTION, adminDocId),
-          {
-            id: 'admin_tayrone_master',
-            name: 'Tyrone Santos (Admin)',
-            email: ADMIN_EMAIL,
-            role: 'admin',
-            accessStatus: 'approved',
-            passwordHash: hashPassword(ADMIN_INITIAL_PASS),
-            plainPassword: ADMIN_INITIAL_PASS,
-            lastLoginAt: new Date().toISOString(),
-          },
-          { merge: true }
-        ).catch(() => {});
+        // Ensure record in Cloud Firestore is in sync if quota is available
+        if (!isFirestoreQuotaExceeded()) {
+          const adminDocId = sanitizeDocId(ADMIN_EMAIL);
+          setDoc(
+            doc(db, USERS_COLLECTION, adminDocId),
+            {
+              id: 'admin_tayrone_master',
+              name: 'Tyrone Santos (Admin)',
+              email: ADMIN_EMAIL,
+              role: 'admin',
+              accessStatus: 'approved',
+              passwordHash: hashPassword(ADMIN_INITIAL_PASS),
+              plainPassword: ADMIN_INITIAL_PASS,
+              lastLoginAt: new Date().toISOString(),
+            },
+            { merge: true }
+          ).catch((err: any) => {
+            const msg = String(err?.message || err || '');
+            if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+              recordFirestoreQuotaExceeded();
+            }
+          });
+        }
 
         return { success: true };
       }
@@ -260,62 +307,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetHash = hashPassword(cleanPass);
     let matchedAccount: StoredAccount | null = null;
 
-    // 2. Fetch User from Cloud Firestore
-    try {
-      const docId = sanitizeDocId(cleanLogin);
-      const userDocRef = doc(db, USERS_COLLECTION, docId);
-      const snap = await getDoc(userDocRef);
+    // 2. Fetch User from Cloud Firestore (only if quota is available)
+    if (!isFirestoreQuotaExceeded()) {
+      try {
+        const docId = sanitizeDocId(cleanLogin);
+        const userDocRef = doc(db, USERS_COLLECTION, docId);
+        const snap = await getDoc(userDocRef);
 
-      if (snap.exists()) {
-        const data = snap.data();
-        matchedAccount = {
-          id: data.id || snap.id,
-          name: data.name || cleanLogin,
-          nameLower: data.nameLower || (data.name ? data.name.toLowerCase() : cleanLogin),
-          email: data.email || cleanLogin,
-          username: data.username,
-          role: data.role || (data.email?.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'user'),
-          accessStatus: data.accessStatus || (data.role === 'admin' ? 'approved' : 'pending'),
-          passwordHash: data.passwordHash || '',
-          plainPassword: data.plainPassword,
-          createdAt: data.createdAt || new Date().toISOString(),
-          lastLoginAt: data.lastLoginAt,
-        };
-      } else {
-        // Query users in database
-        const allUsersSnap = await getDocs(collection(db, USERS_COLLECTION));
-        for (const docItem of allUsersSnap.docs) {
-          const data = docItem.data();
-          const docEmail = (data.email || '').toLowerCase().trim();
-          const docName = (data.name || '').toLowerCase().trim();
-          const docUsername = (data.username || '').toLowerCase().trim();
-          const emailPrefix = docEmail.includes('@') ? docEmail.split('@')[0] : '';
+        if (snap.exists()) {
+          const data = snap.data();
+          matchedAccount = {
+            id: data.id || snap.id,
+            name: data.name || cleanLogin,
+            nameLower: data.nameLower || (data.name ? data.name.toLowerCase() : cleanLogin),
+            email: data.email || cleanLogin,
+            username: data.username,
+            role: data.role || (data.email?.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'user'),
+            accessStatus: data.accessStatus || (data.role === 'admin' ? 'approved' : 'pending'),
+            passwordHash: data.passwordHash || '',
+            plainPassword: data.plainPassword,
+            createdAt: data.createdAt || new Date().toISOString(),
+            lastLoginAt: data.lastLoginAt,
+          };
+        } else {
+          // Query users in database
+          const allUsersSnap = await getDocs(collection(db, USERS_COLLECTION));
+          for (const docItem of allUsersSnap.docs) {
+            const data = docItem.data();
+            const docEmail = (data.email || '').toLowerCase().trim();
+            const docName = (data.name || '').toLowerCase().trim();
+            const docUsername = (data.username || '').toLowerCase().trim();
+            const emailPrefix = docEmail.includes('@') ? docEmail.split('@')[0] : '';
 
-          if (
-            docEmail === cleanLogin ||
-            docName === cleanLogin ||
-            docUsername === cleanLogin ||
-            (emailPrefix && emailPrefix === cleanLogin)
-          ) {
-            matchedAccount = {
-              id: data.id || docItem.id,
-              name: data.name || cleanLogin,
-              nameLower: data.nameLower || docName,
-              email: data.email || cleanLogin,
-              username: data.username,
-              role: data.role || (docEmail === ADMIN_EMAIL ? 'admin' : 'user'),
-              accessStatus: data.accessStatus || 'pending',
-              passwordHash: data.passwordHash || '',
-              plainPassword: data.plainPassword,
-              createdAt: data.createdAt || new Date().toISOString(),
-              lastLoginAt: data.lastLoginAt,
-            };
-            break;
+            if (
+              docEmail === cleanLogin ||
+              docName === cleanLogin ||
+              docUsername === cleanLogin ||
+              (emailPrefix && emailPrefix === cleanLogin)
+            ) {
+              matchedAccount = {
+                id: data.id || docItem.id,
+                name: data.name || cleanLogin,
+                nameLower: data.nameLower || docName,
+                email: data.email || cleanLogin,
+                username: data.username,
+                role: data.role || (docEmail === ADMIN_EMAIL ? 'admin' : 'user'),
+                accessStatus: data.accessStatus || 'pending',
+                passwordHash: data.passwordHash || '',
+                plainPassword: data.plainPassword,
+                createdAt: data.createdAt || new Date().toISOString(),
+                lastLoginAt: data.lastLoginAt,
+              };
+              break;
+            }
           }
         }
+      } catch (cloudErr: any) {
+        const msg = String(cloudErr?.message || cloudErr || '');
+        if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+          recordFirestoreQuotaExceeded();
+        }
+        console.warn('[Auth] Firestore query notice, checking local fallback:', cloudErr);
       }
-    } catch (cloudErr) {
-      console.warn('[Auth] Firestore query error, checking local fallback:', cloudErr);
     }
 
     // 3. Fallback to local accounts cache
@@ -383,12 +436,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
     saveLocalAccount(matchedAccount);
 
-    // Update lastLoginAt in Firestore
-    try {
-      const docId = sanitizeDocId(matchedAccount.email);
-      setDoc(doc(db, USERS_COLLECTION, docId), { lastLoginAt: new Date().toISOString() }, { merge: true }).catch(() => {});
-    } catch {
-      // Ignore background update
+    // Update lastLoginAt in Firestore if quota allows
+    if (!isFirestoreQuotaExceeded()) {
+      try {
+        const docId = sanitizeDocId(matchedAccount.email);
+        setDoc(doc(db, USERS_COLLECTION, docId), { lastLoginAt: new Date().toISOString() }, { merge: true }).catch((err: any) => {
+          const msg = String(err?.message || err || '');
+          if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+            recordFirestoreQuotaExceeded();
+          }
+        });
+      } catch {
+        // Ignore background update
+      }
     }
 
     return { success: true };
@@ -422,17 +482,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetHash = hashPassword(cleanPass);
     const isAdminAccount = cleanLogin === ADMIN_EMAIL.toLowerCase();
 
-    // 1. Check if user already exists
-    try {
-      const existingDoc = await getDoc(doc(db, USERS_COLLECTION, docId));
-      if (existingDoc.exists()) {
-        return {
-          success: false,
-          error: 'Este email ou usuário já está cadastrado. Você pode ir para a aba "Entrar"!',
-        };
+    // 1. Check if user already exists in local accounts cache first
+    const localAccounts = getLocalAccounts();
+    const alreadyLocal = localAccounts.some(
+      (a) => a.email.toLowerCase() === cleanLogin || a.username?.toLowerCase() === cleanLogin
+    );
+    if (alreadyLocal) {
+      return {
+        success: false,
+        error: 'Este email ou usuário já está cadastrado. Você pode ir para a aba "Entrar"!',
+      };
+    }
+
+    // Check Cloud Firestore if quota is available
+    if (!isFirestoreQuotaExceeded()) {
+      try {
+        const existingDoc = await getDoc(doc(db, USERS_COLLECTION, docId));
+        if (existingDoc.exists()) {
+          return {
+            success: false,
+            error: 'Este email ou usuário já está cadastrado. Você pode ir para a aba "Entrar"!',
+          };
+        }
+      } catch (e: any) {
+        const msg = String(e?.message || e || '');
+        if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+          recordFirestoreQuotaExceeded();
+        }
       }
-    } catch (e) {
-      console.warn('[Auth] Check existing user cloud warning:', e);
     }
 
     // 2. Prepare user record
@@ -450,18 +527,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastLoginAt: new Date().toISOString(),
     };
 
-    // 3. Save directly to Cloud Firestore
-    try {
-      await setDoc(doc(db, USERS_COLLECTION, docId), newAccount, { merge: true });
-    } catch (cloudErr: any) {
-      console.error('[Auth] Failed to write user to Cloud Firestore:', cloudErr);
-      return {
-        success: false,
-        error: 'Não foi possível salvar os dados no banco: ' + (cloudErr?.message || 'Falha de conexão.'),
-      };
+    // 3. Save to Cloud Firestore if quota allows
+    if (!isFirestoreQuotaExceeded()) {
+      try {
+        await setDoc(doc(db, USERS_COLLECTION, docId), newAccount, { merge: true });
+      } catch (cloudErr: any) {
+        const msg = String(cloudErr?.message || cloudErr || '');
+        if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+          recordFirestoreQuotaExceeded();
+        }
+      }
     }
 
-    // 4. Save local backup cache
+    // 4. Save local backup cache (Guarantees user exists even if Firestore quota is exceeded)
     saveLocalAccount(newAccount);
 
     // 5. If this is Admin, log in immediately. Otherwise, pending approval.
@@ -497,20 +575,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newStatus: UserAccessStatus
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const snap = await getDocs(collection(db, USERS_COLLECTION));
-      let docToUpdate = '';
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data.id === userId || d.id === userId) {
-          docToUpdate = d.id;
+      // 1. Update local accounts cache
+      const accounts = getLocalAccounts();
+      const updated = accounts.map((acc) => {
+        if (acc.id === userId || acc.email.toLowerCase() === userId.toLowerCase()) {
+          return { ...acc, accessStatus: newStatus };
         }
+        return acc;
       });
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
 
-      if (!docToUpdate) {
-        docToUpdate = sanitizeDocId(userId);
+      // 2. Update usersList in React state
+      setUsersList((prev) =>
+        prev.map((u) => (u.id === userId || u.email.toLowerCase() === userId.toLowerCase() ? { ...u, accessStatus: newStatus } : u))
+      );
+
+      // 3. Sync to Cloud Firestore if quota allows
+      if (!isFirestoreQuotaExceeded()) {
+        try {
+          const snap = await getDocs(collection(db, USERS_COLLECTION));
+          let docToUpdate = '';
+          snap.forEach((d) => {
+            const data = d.data();
+            if (data.id === userId || d.id === userId) {
+              docToUpdate = d.id;
+            }
+          });
+
+          if (!docToUpdate) {
+            docToUpdate = sanitizeDocId(userId);
+          }
+
+          await setDoc(doc(db, USERS_COLLECTION, docToUpdate), { accessStatus: newStatus }, { merge: true });
+        } catch (e: any) {
+          const msg = String(e?.message || e || '');
+          if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+            recordFirestoreQuotaExceeded();
+          }
+        }
       }
 
-      await setDoc(doc(db, USERS_COLLECTION, docToUpdate), { accessStatus: newStatus }, { merge: true });
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Erro ao alterar permissão.' };
@@ -523,24 +627,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const newHash = hashPassword(newPassword);
-      const snap = await getDocs(collection(db, USERS_COLLECTION));
-      let docToUpdate = '';
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data.id === userId || d.id === userId) {
-          docToUpdate = d.id;
-        }
-      });
 
-      if (!docToUpdate) {
-        docToUpdate = sanitizeDocId(userId);
+      // 1. Update local accounts cache
+      const accounts = getLocalAccounts();
+      const updated = accounts.map((acc) => {
+        if (acc.id === userId || acc.email.toLowerCase() === userId.toLowerCase()) {
+          return { ...acc, passwordHash: newHash, plainPassword: newPassword };
+        }
+        return acc;
+      });
+      localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+
+      // 2. Sync to Cloud Firestore if quota allows
+      if (!isFirestoreQuotaExceeded()) {
+        try {
+          const snap = await getDocs(collection(db, USERS_COLLECTION));
+          let docToUpdate = '';
+          snap.forEach((d) => {
+            const data = d.data();
+            if (data.id === userId || d.id === userId) {
+              docToUpdate = d.id;
+            }
+          });
+
+          if (!docToUpdate) {
+            docToUpdate = sanitizeDocId(userId);
+          }
+
+          await setDoc(
+            doc(db, USERS_COLLECTION, docToUpdate),
+            { passwordHash: newHash, plainPassword: newPassword },
+            { merge: true }
+          );
+        } catch (e: any) {
+          const msg = String(e?.message || e || '');
+          if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+            recordFirestoreQuotaExceeded();
+          }
+        }
       }
 
-      await setDoc(
-        doc(db, USERS_COLLECTION, docToUpdate),
-        { passwordHash: newHash, plainPassword: newPassword },
-        { merge: true }
-      );
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Erro ao atualizar senha.' };
@@ -564,54 +690,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'A conta de Administrador Mestre não pode ser excluída.' };
       }
 
-      const snap = await getDocs(collection(db, USERS_COLLECTION));
-      const docsToDelete: string[] = [];
-
-      snap.forEach((d) => {
-        const data = d.data();
-        const docEmail = (data.email || '').toLowerCase().trim();
-        const docId = d.id;
-        const dataId = data.id || '';
-
-        // Never delete master admin
-        if (docEmail === ADMIN_EMAIL.toLowerCase() || docId === sanitizeDocId(ADMIN_EMAIL)) {
-          return;
-        }
-
-        const matchId = cleanTargetId && (docId === cleanTargetId || dataId === cleanTargetId);
-        const matchEmail =
-          cleanTargetEmail &&
-          (docEmail === cleanTargetEmail || docId === sanitizeDocId(cleanTargetEmail));
-        const matchTargetAsEmail =
-          cleanTargetId.includes('@') && docEmail === cleanTargetId.toLowerCase();
-
-        if (matchId || matchEmail || matchTargetAsEmail) {
-          docsToDelete.push(docId);
-        }
-      });
-
-      // Also try direct docId if none found via iteration
-      if (docsToDelete.length === 0 && cleanTargetEmail) {
-        docsToDelete.push(sanitizeDocId(cleanTargetEmail));
-      }
-
-      for (const dId of docsToDelete) {
-        try {
-          await deleteDoc(doc(db, USERS_COLLECTION, dId));
-        } catch (delErr) {
-          console.warn('[Auth] Delete doc warning for', dId, delErr);
-        }
-      }
-
-      // Also clean user's library in Firestore if exists
-      const libraryDocId = cleanTargetEmail
-        ? cleanTargetEmail.replace(/[^a-z0-9_.-]/g, '_')
-        : cleanTargetId.replace(/[^a-z0-9_.-]/g, '_');
-      try {
-        await deleteDoc(doc(db, 'user_libraries', libraryDocId));
-      } catch (_) {}
-
-      // Clean from local accounts cache
+      // 1. Clean from local accounts cache immediately
       try {
         const currentAccounts = getLocalAccounts();
         const filteredAccounts = currentAccounts.filter((acc) => {
@@ -622,7 +701,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(filteredAccounts));
       } catch (_) {}
 
-      // Immediately update local usersList state
+      // 2. Immediately update local usersList state
       setUsersList((prev) =>
         prev.filter((u) => {
           const uEmail = u.email.toLowerCase().trim();
@@ -634,6 +713,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
         })
       );
+
+      // 3. Remove from Firestore if quota allows
+      if (!isFirestoreQuotaExceeded()) {
+        try {
+          const snap = await getDocs(collection(db, USERS_COLLECTION));
+          const docsToDelete: string[] = [];
+
+          snap.forEach((d) => {
+            const data = d.data();
+            const docEmail = (data.email || '').toLowerCase().trim();
+            const docId = d.id;
+            const dataId = data.id || '';
+
+            // Never delete master admin
+            if (docEmail === ADMIN_EMAIL.toLowerCase() || docId === sanitizeDocId(ADMIN_EMAIL)) {
+              return;
+            }
+
+            const matchId = cleanTargetId && (docId === cleanTargetId || dataId === cleanTargetId);
+            const matchEmail =
+              cleanTargetEmail &&
+              (docEmail === cleanTargetEmail || docId === sanitizeDocId(cleanTargetEmail));
+            const matchTargetAsEmail =
+              cleanTargetId.includes('@') && docEmail === cleanTargetId.toLowerCase();
+
+            if (matchId || matchEmail || matchTargetAsEmail) {
+              docsToDelete.push(docId);
+            }
+          });
+
+          // Also try direct docId if none found via iteration
+          if (docsToDelete.length === 0 && cleanTargetEmail) {
+            docsToDelete.push(sanitizeDocId(cleanTargetEmail));
+          }
+
+          for (const dId of docsToDelete) {
+            try {
+              await deleteDoc(doc(db, USERS_COLLECTION, dId));
+            } catch (delErr) {
+              console.warn('[Auth] Delete doc warning for', dId, delErr);
+            }
+          }
+
+          // Also clean user's library in Firestore if exists
+          const libraryDocId = cleanTargetEmail
+            ? cleanTargetEmail.replace(/[^a-z0-9_.-]/g, '_')
+            : cleanTargetId.replace(/[^a-z0-9_.-]/g, '_');
+          try {
+            await deleteDoc(doc(db, 'user_libraries', libraryDocId));
+          } catch (_) {}
+        } catch (e: any) {
+          const msg = String(e?.message || e || '');
+          if (msg.includes('Quota limit exceeded') || msg.includes('resource-exhausted')) {
+            recordFirestoreQuotaExceeded();
+          }
+        }
+      }
 
       return { success: true };
     } catch (e: any) {

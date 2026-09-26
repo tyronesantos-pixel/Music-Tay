@@ -1,17 +1,11 @@
 import React from 'react';
 import {
   Home,
-  Compass,
   Heart,
   History,
-  FolderPlus,
   Plus,
   Layers,
-  Cloud,
-  Smartphone,
-  User,
   LogOut,
-  ShieldCheck,
 } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
 import { useAuth } from '../context/AuthContext';
@@ -86,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Player do Tyrone
             </span>
             <span className="text-[10px] text-zinc-500 font-medium">
-              Clipes, Músicas & Games
+              Vídeo Clipes
             </span>
           </div>
         </div>
@@ -189,38 +183,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
-
-        {/* Admin Master Panel Button (Strictly for Admin) */}
-        {isAdmin && onOpenAdminModal && (
-          <button
-            onClick={onOpenAdminModal}
-            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-violet-600/30 hover:from-amber-500/30 hover:to-violet-600/40 border border-amber-500/40 text-xs font-bold text-amber-300 hover:text-white flex items-center justify-between transition-all group cursor-pointer shadow-md shadow-amber-500/10 active:scale-98"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span>Painel Admin</span>
-            </div>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.5 rounded-full border border-amber-500/40">
-              Liberar
-            </span>
-          </button>
-        )}
-
-        {/* Play Store button */}
-        {onOpenPlayStoreModal && (
-          <button
-            onClick={onOpenPlayStoreModal}
-            className="w-full py-2 px-3 rounded-xl bg-[#1a1724] hover:bg-[#231f30] border border-violet-500/20 hover:border-cyan-500/40 text-xs font-semibold text-white flex items-center justify-between transition-all group cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span>Instalar / Play Store</span>
-            </div>
-            <span className="text-[10px] bg-cyan-500/20 text-cyan-300 font-extrabold px-1.5 py-0.5 rounded-full border border-cyan-500/30">
-              PWA
-            </span>
-          </button>
         )}
 
         {/* Add link button */}

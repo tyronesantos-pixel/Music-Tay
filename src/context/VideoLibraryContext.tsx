@@ -172,7 +172,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'musicas' | 'videoclipe' | 'games'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'musicas' | 'videoclipe' | 'games'>('videoclipe');
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -346,7 +346,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       tags: string[] = [],
       customTitle?: string,
       notes?: string,
-      category: 'all' | 'musicas' | 'videoclipe' | 'games' = 'all'
+      category: 'all' | 'musicas' | 'videoclipe' | 'games' = 'videoclipe'
     ): Promise<YouTubeVideo> => {
       const parsed = parseYouTubeUrl(input);
 
@@ -372,12 +372,8 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const meta = await fetchYouTubeMetadata(parsed.videoId, parsed.isShort);
 
       const computedTags = [...tags];
-      if (category === 'videoclipe' && !computedTags.includes('clipe')) {
+      if (!computedTags.includes('clipe')) {
         computedTags.push('clipe');
-      } else if (category === 'musicas' && !computedTags.includes('musica')) {
-        computedTags.push('musica');
-      } else if (category === 'games' && !computedTags.includes('games')) {
-        computedTags.push('games');
       }
 
       const newVideo: YouTubeVideo = {
@@ -599,7 +595,7 @@ export const VideoLibraryProvider: React.FC<{ children: React.ReactNode }> = ({ 
         id: newColId,
         name,
         description: description || '',
-        category: category || 'all',
+        category: category || 'videoclipe',
         color: color || '',
         videoIds: [],
         userId: currentUserId,

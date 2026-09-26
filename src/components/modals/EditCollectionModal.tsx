@@ -4,9 +4,6 @@ import {
   X,
   Check,
   Film,
-  Music,
-  Gamepad2,
-  Sparkles,
   Palette,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
@@ -26,7 +23,7 @@ export const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
   const { updateCollection } = useVideoLibrary();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<'all' | 'musicas' | 'videoclipe' | 'games'>('all');
+  const category = 'videoclipe';
   const [color, setColor] = useState<string>('violet');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,49 +31,11 @@ export const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
     if (collection) {
       setName(collection.name || '');
       setDescription(collection.description || '');
-      setCategory(collection.category || 'all');
       setColor(collection.color || 'violet');
     }
   }, [collection]);
 
   if (!isOpen || !collection) return null;
-
-  const categoryOptions: Array<{
-    id: 'all' | 'musicas' | 'videoclipe' | 'games';
-    label: string;
-    icon: React.ReactNode;
-    desc: string;
-    badgeColor: string;
-  }> = [
-    {
-      id: 'videoclipe',
-      label: 'Videoclip',
-      icon: <Film className="w-4 h-4 text-cyan-400" />,
-      desc: 'Clipes oficiais, shows e lançamentos visuais',
-      badgeColor: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
-    },
-    {
-      id: 'musicas',
-      label: 'Música',
-      icon: <Music className="w-4 h-4 text-violet-400" />,
-      desc: 'Músicas completas, álbuns, remixes e áudio',
-      badgeColor: 'border-violet-500/40 bg-violet-500/10 text-violet-300',
-    },
-    {
-      id: 'games',
-      label: 'Game',
-      icon: <Gamepad2 className="w-4 h-4 text-emerald-400" />,
-      desc: 'Gameplays, trailers, OSTs e momentos de jogos',
-      badgeColor: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
-    },
-    {
-      id: 'all',
-      label: 'Misto',
-      icon: <Sparkles className="w-4 h-4 text-amber-400" />,
-      desc: 'Conteúdo variado e diversos tipos misturados',
-      badgeColor: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-    },
-  ];
 
   const colorOptions = [
     { id: 'violet', label: 'Violeta Neon', bg: 'bg-violet-600', border: 'border-violet-400' },
@@ -144,41 +103,6 @@ export const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3.5 py-2 rounded-xl bg-[#0f0d14] border border-white/10 focus:border-violet-500 text-xs text-white placeholder-zinc-500 outline-none transition-colors"
             />
-          </div>
-
-          {/* Categoria / Tipo de Playlist */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-zinc-200">
-              Tipo de Conteúdo (Categoria)
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {categoryOptions.map((opt) => {
-                const isSelected = category === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setCategory(opt.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      isSelected
-                        ? 'border-violet-500 bg-violet-600/15 shadow-md shadow-violet-500/10'
-                        : 'border-white/5 bg-[#0f0d14] hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 font-bold text-xs text-white">
-                        {opt.icon}
-                        <span>{opt.label}</span>
-                      </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-violet-400" />}
-                    </div>
-                    <span className="text-[10px] text-zinc-400 leading-tight">
-                      {opt.desc}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           {/* Descrição */}

@@ -48,7 +48,7 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [editCategory, setEditCategory] = useState<'all' | 'musicas' | 'videoclipe' | 'games'>('all');
+  const editCategory = 'videoclipe';
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [savedFeedbackId, setSavedFeedbackId] = useState<string | null>(null);
 
@@ -129,23 +129,18 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
     setEditingId(v.id);
     setEditTitle(v.title);
     setEditNotes(v.notes || '');
-    setEditCategory(v.category || 'all');
   };
 
   const saveEdit = async (id: string, originalTags: string[] = []) => {
     let updatedTags = [...originalTags];
-    if (editCategory === 'videoclipe' && !updatedTags.includes('clipe')) {
+    if (!updatedTags.includes('clipe')) {
       updatedTags.push('clipe');
-    } else if (editCategory === 'musicas' && !updatedTags.includes('musica')) {
-      updatedTags.push('musica');
-    } else if (editCategory === 'games' && !updatedTags.includes('games')) {
-      updatedTags.push('games');
     }
 
     await updateVideo(id, {
       title: editTitle.trim() || 'Vídeo sem título',
       notes: editNotes.trim(),
-      category: editCategory,
+      category: 'videoclipe',
       tags: updatedTags,
     });
 
@@ -162,33 +157,12 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
     setSyncingId(null);
   };
 
-  const getCategoryBadge = (cat?: string) => {
-    switch (cat) {
-      case 'videoclipe':
-        return (
-          <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[9px] uppercase border border-cyan-500/30">
-            Videoclip
-          </span>
-        );
-      case 'musicas':
-        return (
-          <span className="px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-bold text-[9px] uppercase border border-violet-500/30">
-            Música
-          </span>
-        );
-      case 'games':
-        return (
-          <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[9px] uppercase border border-emerald-500/30">
-            Game
-          </span>
-        );
-      default:
-        return (
-          <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold text-[9px] uppercase border border-amber-500/30">
-            Geral
-          </span>
-        );
-    }
+  const getCategoryBadge = (_cat?: string) => {
+    return (
+      <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-[9px] uppercase border border-cyan-500/30">
+        Videoclip
+      </span>
+    );
   };
 
   return (
@@ -368,16 +342,9 @@ export const ManageLibraryView: React.FC<ManageLibraryViewProps> = ({
                           className="w-full bg-[#13111c] border border-violet-500/40 rounded px-2.5 py-1 text-xs text-white outline-none"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
-                          <select
-                            value={editCategory}
-                            onChange={(e) => setEditCategory(e.target.value as any)}
-                            className="bg-[#13111c] border border-white/10 rounded px-2 py-1 text-[11px] text-zinc-300 outline-none"
-                          >
-                            <option value="videoclipe">🎬 Videoclip</option>
-                            <option value="musicas">🎵 Música</option>
-                            <option value="games">🎮 Game</option>
-                            <option value="all">🌌 Misto / Geral</option>
-                          </select>
+                          <span className="px-2 py-1 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-bold text-[10px]">
+                            🎬 Videoclip
+                          </span>
 
                           <input
                             type="text"

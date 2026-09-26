@@ -3,12 +3,9 @@ import {
   Layers,
   Trash2,
   Play,
-  Music,
   Plus,
   Edit3,
   Film,
-  Gamepad2,
-  Sparkles,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
@@ -66,33 +63,12 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
     videos: playlistVideos,
   };
 
-  const getCategoryInfo = (cat?: string) => {
-    switch (cat) {
-      case 'videoclipe':
-        return {
-          label: 'Videoclipe',
-          icon: <Film className="w-3.5 h-3.5 text-cyan-400" />,
-          color: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-        };
-      case 'musicas':
-        return {
-          label: 'Músicas',
-          icon: <Music className="w-3.5 h-3.5 text-violet-400" />,
-          color: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-        };
-      case 'games':
-        return {
-          label: 'Games',
-          icon: <Gamepad2 className="w-3.5 h-3.5 text-emerald-400" />,
-          color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-        };
-      default:
-        return {
-          label: 'Misto / Geral',
-          icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
-          color: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-        };
-    }
+  const getCategoryInfo = (_cat?: string) => {
+    return {
+      label: 'Videoclipe',
+      icon: <Film className="w-3.5 h-3.5 text-cyan-400" />,
+      color: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    };
   };
 
   const catInfo = getCategoryInfo(currentPlaylist.category);
@@ -186,7 +162,7 @@ export const CollectionView: React.FC<CollectionViewProps> = ({ onOpenCollection
       {/* Playlist Content Grid */}
       {playlistVideos.length === 0 ? (
         <div className="bg-[#16141f] border border-white/5 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
-          <Music className="w-12 h-12 text-zinc-700 mb-3" />
+          <Film className="w-12 h-12 text-zinc-700 mb-3" />
           <h3 className="text-base font-bold text-white mb-1">Playlist vazia</h3>
           <p className="text-xs text-zinc-400 max-w-sm mb-5">
             Adicione vídeos e músicas que você já salvou na sua biblioteca a esta playlist para ouvi-los em sequência.

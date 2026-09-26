@@ -5,11 +5,8 @@ import {
   Play,
   X,
   Search,
-  Music,
   Layers,
   Film,
-  Gamepad2,
-  Sparkles,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
@@ -63,37 +60,13 @@ export const PlaylistsDropdownModal: React.FC<PlaylistsDropdownModalProps> = ({
     }
   };
 
-  const getCategoryBadge = (cat?: string) => {
-    switch (cat) {
-      case 'videoclipe':
-        return (
-          <span className="px-1.5 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[9px] font-bold flex items-center gap-1">
-            <Film className="w-2.5 h-2.5" />
-            Videoclipe
-          </span>
-        );
-      case 'musicas':
-        return (
-          <span className="px-1.5 py-0.5 rounded-md bg-violet-500/15 border border-violet-500/30 text-violet-300 text-[9px] font-bold flex items-center gap-1">
-            <Music className="w-2.5 h-2.5" />
-            Músicas
-          </span>
-        );
-      case 'games':
-        return (
-          <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[9px] font-bold flex items-center gap-1">
-            <Gamepad2 className="w-2.5 h-2.5" />
-            Games
-          </span>
-        );
-      default:
-        return (
-          <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[9px] font-bold flex items-center gap-1">
-            <Sparkles className="w-2.5 h-2.5" />
-            Misto
-          </span>
-        );
-    }
+  const getCategoryBadge = (_cat?: string) => {
+    return (
+      <span className="px-1.5 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[9px] font-bold flex items-center gap-1">
+        <Film className="w-2.5 h-2.5" />
+        Videoclipe
+      </span>
+    );
   };
 
   return (
@@ -199,7 +172,7 @@ export const PlaylistsDropdownModal: React.FC<PlaylistsDropdownModalProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Folder Icon Thumbnail */}
                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/25 to-indigo-900/30 flex items-center justify-center text-violet-400 shrink-0 border border-violet-500/20 group-hover:scale-105 transition-transform">
-                      <Music className="w-5 h-5" />
+                      <Film className="w-5 h-5 text-cyan-400" />
                     </div>
 
                     <div className="min-w-0">

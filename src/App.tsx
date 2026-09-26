@@ -25,7 +25,7 @@ import { FloatingAudioIcon } from './components/player/FloatingAudioIcon';
 
 const MainLayout: React.FC = () => {
   const { currentView } = useVideoLibrary();
-  const { currentVideo, isMaximized } = useVideoPlayer();
+  const { currentVideo } = useVideoPlayer();
 
   // Modals state
   const [isAddYouTubeModalOpen, setIsAddYouTubeModalOpen] = useState(false);
@@ -44,29 +44,25 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] w-screen bg-[#0f0d14] text-white overflow-hidden select-none font-sans">
-      {/* Top Universal Navbar - Hidden in Maximized Screen Mode */}
-      {!isMaximized && (
-        <TopNav
-          onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-          onOpenSyncModal={() => setIsSyncModalOpen(true)}
-          onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
-          onOpenGuideModal={() => setIsGuideModalOpen(true)}
-          onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
-          onOpenAdminModal={() => setIsAdminModalOpen(true)}
-        />
-      )}
+      {/* Top Universal Navbar */}
+      <TopNav
+        onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
+        onOpenGuideModal={() => setIsGuideModalOpen(true)}
+        onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
+      />
 
       {/* Main Layout Area: Sidebar (Desktop) + Active View */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        {/* Desktop Sidebar - Hidden in Maximized Screen Mode */}
-        {!isMaximized && (
-          <Sidebar
-            onCreateCollectionModal={() => setIsCreateCollectionOpen(true)}
-            onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-            onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
-            onOpenAdminModal={() => setIsAdminModalOpen(true)}
-          />
-        )}
+        {/* Desktop Sidebar */}
+        <Sidebar
+          onCreateCollectionModal={() => setIsCreateCollectionOpen(true)}
+          onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
+          onOpenPlayStoreModal={() => setIsPlayStoreModalOpen(true)}
+          onOpenAdminModal={() => setIsAdminModalOpen(true)}
+        />
 
         {/* View Router */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#0c0a12] overflow-hidden relative">
@@ -111,7 +107,7 @@ const MainLayout: React.FC = () => {
               className={`absolute inset-0 z-20 flex flex-col overflow-hidden bg-[#0c0a12] transition-opacity duration-150 ${
                 currentView === 'watch'
                   ? 'opacity-100 pointer-events-auto'
-                  : 'opacity-0 pointer-events-none -z-10'
+                  : 'opacity-[0.002] pointer-events-none -z-10'
               }`}
             >
               <WatchView
@@ -124,22 +120,18 @@ const MainLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Floating Audio Icon with Explodir Button & Pocket Mode - Hidden in Maximized Screen Mode */}
-      {!isMaximized && (
-        <FloatingAudioIcon
-          isPocketMode={isPocketModeOpen}
-          onOpenPocketMode={() => setIsPocketModeOpen(true)}
-        />
-      )}
+      {/* Floating Audio Icon with Explodir Button & Pocket Mode (No image/video blocking the screen!) */}
+      <FloatingAudioIcon
+        isPocketMode={isPocketModeOpen}
+        onOpenPocketMode={() => setIsPocketModeOpen(true)}
+      />
 
-      {/* Mobile Bottom Navigation - Hidden in Maximized Screen Mode */}
-      {!isMaximized && (
-        <MobileBottomNav
-          onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
-          onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
-          onOpenAdminModal={() => setIsAdminModalOpen(true)}
-        />
-      )}
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav
+        onOpenAddModal={() => setIsAddYouTubeModalOpen(true)}
+        onOpenPlaylistsModal={() => setIsPlaylistsModalOpen(true)}
+        onOpenAdminModal={() => setIsAdminModalOpen(true)}
+      />
 
       {/* Pocket Mode / Tela 100% Apagada (Ouvir no Bolso sem toques acidentais e zero gasto de bateria) */}
       <PocketModeOverlay

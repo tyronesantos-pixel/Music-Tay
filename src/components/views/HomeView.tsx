@@ -4,10 +4,7 @@ import {
   Layers,
   Cloud,
   Youtube,
-  Music,
   Film,
-  Gamepad2,
-  Sparkles,
   User,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
@@ -30,24 +27,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
     videos,
     searchQuery,
     selectedTag,
-    categoryFilter,
-    setCategoryFilter,
     setCurrentView,
   } = useVideoLibrary();
   const { user } = useAuth();
 
-  const categories: Array<{
-    id: 'videoclipe' | 'musicas' | 'games' | 'all';
-    label: string;
-    icon: React.ReactNode;
-  }> = [
-    { id: 'videoclipe', label: '🎬 Videoclip', icon: <Film className="w-3.5 h-3.5" /> },
-    { id: 'musicas', label: '🎵 Música', icon: <Music className="w-3.5 h-3.5" /> },
-    { id: 'games', label: '🎮 Game', icon: <Gamepad2 className="w-3.5 h-3.5" /> },
-    { id: 'all', label: '🌌 Misto', icon: <Sparkles className="w-3.5 h-3.5" /> },
-  ];
-
-  // Filtered videos
+  // Filtered videos (All videos are Video Clips)
   const filteredVideos = videos.filter((v) => {
     // Search filter
     if (searchQuery) {
@@ -56,47 +40,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
       const matchChannel = v.channelTitle.toLowerCase().includes(q);
       const matchTags = v.tags.some((t) => t.toLowerCase().includes(q));
       if (!matchTitle && !matchChannel && !matchTags) return false;
-    }
-
-    // Category filter
-    if (categoryFilter !== 'all') {
-      const titleLower = v.title.toLowerCase();
-      const tagsLower = v.tags.map((t) => t.toLowerCase());
-
-      if (categoryFilter === 'videoclipe') {
-        const isVideoclipe =
-          v.category === 'videoclipe' ||
-          tagsLower.some((t) => t.includes('clipe') || t.includes('clip') || t.includes('video clipe')) ||
-          titleLower.includes('clipe') ||
-          titleLower.includes('clip') ||
-          titleLower.includes('official video') ||
-          titleLower.includes('vídeo oficial');
-        if (!isVideoclipe) return false;
-      } else if (categoryFilter === 'musicas') {
-        const isMusica =
-          v.category === 'musicas' ||
-          tagsLower.some((t) => t.includes('música') || t.includes('musica') || t.includes('music') || t.includes('som')) ||
-          titleLower.includes('música') ||
-          titleLower.includes('musica') ||
-          titleLower.includes('music') ||
-          titleLower.includes('audio') ||
-          titleLower.includes('álbum') ||
-          titleLower.includes('album') ||
-          titleLower.includes('remix') ||
-          titleLower.includes('letra') ||
-          titleLower.includes('lyric');
-        if (!isMusica) return false;
-      } else if (categoryFilter === 'games') {
-        const isGame =
-          v.category === 'games' ||
-          tagsLower.some((t) => t.includes('game') || t.includes('gaming') || t.includes('jogos')) ||
-          titleLower.includes('game') ||
-          titleLower.includes('gameplay') ||
-          titleLower.includes('jogando') ||
-          titleLower.includes('playthrough') ||
-          titleLower.includes('trailer');
-        if (!isGame) return false;
-      }
     }
 
     // Tag filter
@@ -152,31 +95,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-6 flex flex-col gap-4 sm:gap-5 max-w-6xl mx-auto w-full pb-36 sm:pb-8">
-      {/* Category Pills Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Clean Category Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto">
-          {categories.map((cat) => {
-            const isSelected = categoryFilter === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setCategoryFilter(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0 active:scale-95 ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-violet-600 to-cyan-500 text-white shadow-md shadow-violet-600/25'
-                    : 'bg-[#1b1825] hover:bg-[#242132] text-zinc-300 hover:text-white border border-white/5'
-                }`}
-              >
-                {cat.icon}
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
+      {/* Clean Header: Exclusively Video Clips */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+            <Film className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-sm sm:text-base font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>Vídeo Clips</span>
+              <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 text-[10px] font-bold border border-cyan-500/20">
+                Oficial
+              </span>
+            </h1>
+          </div>
         </div>
 
         {/* Counter and Library Link */}
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-zinc-400 shrink-0">
+        <div className="flex items-center gap-3 text-xs text-zinc-400 shrink-0">
           <span>{filteredVideos.length} vídeo(s)</span>
           <button
             onClick={() => setCurrentView('manage')}
@@ -193,9 +129,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
         {filteredVideos.length === 0 ? (
           <div className="bg-[#16141f] border border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center text-center">
             <Youtube className="w-10 h-10 text-zinc-600 mb-2" />
-            <h3 className="text-sm font-bold text-white mb-1">Nenhum vídeo nesta categoria</h3>
+            <h3 className="text-sm font-bold text-white mb-1">Nenhum clipe encontrado</h3>
             <p className="text-xs text-zinc-400 mb-4">
-              Adicione links com a tag desta categoria ou selecione outro filtro.
+              Adicione links de videoclipes do YouTube ou ajuste sua busca.
             </p>
             <button
               onClick={onOpenAddModal}

@@ -4,12 +4,9 @@ import {
   Plus,
   Layers,
   X,
-  Smartphone,
   ChevronDown,
   Cloud,
-  Sparkles,
   LogOut,
-  User,
   ShieldCheck,
 } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
@@ -27,10 +24,7 @@ interface TopNavProps {
 
 export const TopNav: React.FC<TopNavProps> = ({
   onOpenAddModal,
-  onOpenSyncModal,
   onOpenPlaylistsModal,
-  onOpenGuideModal,
-  onOpenPlayStoreModal,
   onOpenAdminModal,
 }) => {
   const {
@@ -40,21 +34,9 @@ export const TopNav: React.FC<TopNavProps> = ({
     setSearchQuery,
     videos,
     collections,
-    categoryFilter,
-    setCategoryFilter,
   } = useVideoLibrary();
 
   const { user, logout, isAdmin } = useAuth();
-
-  const filterCategories: Array<{
-    label: string;
-    cat: 'videoclipe' | 'musicas' | 'games' | 'all';
-  }> = [
-    { label: '🎬 Videoclip', cat: 'videoclipe' },
-    { label: '🎵 Música', cat: 'musicas' },
-    { label: '🎮 Game', cat: 'games' },
-    { label: '🌌 Misto', cat: 'all' },
-  ];
 
   return (
     <header className="sticky top-0 z-40 bg-[#121018]/95 backdrop-blur-xl border-b border-white/10 px-3.5 sm:px-6 py-2.5 flex flex-col gap-2">
@@ -124,29 +106,6 @@ export const TopNav: React.FC<TopNavProps> = ({
             </button>
           )}
 
-          {/* App / Play Store Button (Desktop / Tablet) */}
-          {onOpenPlayStoreModal && (
-            <button
-              onClick={onOpenPlayStoreModal}
-              className="hidden md:flex px-2.5 py-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-200 hover:text-cyan-300 border border-white/10 text-xs font-semibold items-center gap-1.5 transition-colors cursor-pointer"
-              title="Instalar no Celular ou Baixar para Play Store"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden lg:inline">App / Loja</span>
-            </button>
-          )}
-
-          {/* Background play guide */}
-          {onOpenGuideModal && (
-            <button
-              onClick={onOpenGuideModal}
-              className="p-1.5 rounded-full bg-[#1f1b2b] hover:bg-[#282337] text-zinc-400 hover:text-violet-300 border border-white/10 transition-colors hidden md:flex items-center justify-center cursor-pointer"
-              title="Dicas para ouvir com celular bloqueado"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-            </button>
-          )}
-
           {/* Manage Library Button (Desktop / Tablet) */}
           <button
             onClick={() => setCurrentView('manage')}
@@ -207,33 +166,6 @@ export const TopNav: React.FC<TopNavProps> = ({
           )}
         </div>
       </div>
-
-      {/* Filter Categories Bar */}
-      {videos.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-          {filterCategories.map((item) => {
-            const isSelected = categoryFilter === item.cat;
-            return (
-              <button
-                key={item.label}
-                onClick={() => {
-                  setCategoryFilter(item.cat);
-                  if (currentView !== 'home') {
-                    setCurrentView('home');
-                  }
-                }}
-                className={`px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-violet-600 to-cyan-500 text-white font-bold shadow-md shadow-violet-600/20'
-                    : 'bg-[#1f1b2b] text-zinc-300 hover:text-white hover:bg-[#282337]'
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </header>
   );
 };

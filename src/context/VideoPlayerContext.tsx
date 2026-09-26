@@ -6,6 +6,9 @@ import {
   startBackgroundAudioSession,
   stopBackgroundAudioSession,
   updateMediaSession,
+  updateMediaSessionPosition,
+  setMediaSessionPlaybackState,
+  sendYouTubeIframeCommand,
 } from '../services/backgroundAudio';
 import { useAuth } from './AuthContext';
 
@@ -181,43 +184,28 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsFullscreen(active);
       if (active) {
         setIsMaximized(true);
-        isMaximizedRef.current = true;
-      }
-      // CRITICAL: Do NOT set isMaximized(false) here!
-      // When a clip finishes or switches, YouTube or the browser temporarily fires
-      // fullscreenchange with active=false. Dropping isMaximized here was kicking
-      // the user out of full screen!
-      // The user must remain in full screen until they explicitly minimize or press ESC.
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isMaximizedRef.current) {
-        setIsMaximized(false);
-        isMaximizedRef.current = false;
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
       }
     };
-
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
     stopBackgroundAudioSession();
+    sendYouTubeIframeCommand('pauseVideo');
+    setMediaSessionPlaybackState('paused');
   }, []);
 
   const resume = useCallback(() => {
     setIsPlaying(true);
     startBackgroundAudioSession();
+    sendYouTubeIframeCommand('playVideo');
+    setMediaSessionPlaybackState('playing');
   }, []);
 
   // Normal / sequential playback
@@ -245,12 +233,16 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Start background audio keep-alive for locked screen playback
       startBackgroundAudioSession();
 
+      const activeAlbum = (context || playlistContextRef.current)?.name
+        ? `SoundUp • ${(context || playlistContextRef.current)?.name}`
+        : 'SoundUp';
+
       // Setup lock screen controls
       updateMediaSession(
         {
           title: video.title,
-          artist: video.channelTitle,
-          album: (context || playlistContextRef.current)?.name || 'Player Pessoal',
+          artist: video.channelTitle || 'SoundUp',
+          album: activeAlbum,
           artworkUrl: video.thumbnailUrl,
         },
         {
@@ -459,6 +451,26 @@ export const VideoPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         if (!event.data) return;
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+
+        // Sync real-time progress bar to lock screen MediaSession
+        if (
+          data?.event === 'infoDelivery' &&
+          typeof data?.info?.currentTime === 'number' &&
+          typeof data?.info?.duration === 'number'
+        ) {
+          updateMediaSessionPosition(data.info.currentTime, data.info.duration);
+        }
+
+        // Sync playback state
+        const playerState =
+          data?.info?.playerState ??
+          (data?.event === 'onStateChange' ? data?.info ?? data?.data : undefined);
+
+        if (playerState === 1) {
+          setMediaSessionPlaybackState('playing');
+        } else if (playerState === 2) {
+          setMediaSessionPlaybackState('paused');
+        }
 
         const isEnded =
           (data?.event === 'onStateChange' &&

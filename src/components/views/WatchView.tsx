@@ -161,19 +161,20 @@ export const WatchView: React.FC<WatchViewProps> = ({
     prevVideoIdRef.current = currentVideo.id;
 
     // 1. Use official YT.Player loadVideoById if ready
+    let loadedViaPlayer = false;
     if (ytPlayerRef.current && isPlayerReadyRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
       try {
         ytPlayerRef.current.loadVideoById({
           videoId: currentVideo.id,
           startSeconds: 0,
         });
+        loadedViaPlayer = true;
       } catch (err) {
         console.warn('[WatchView] loadVideoById notice:', err);
       }
     }
 
     // 2. Also send postMessage directly to the iframe
-    // This commands YouTube to load and play the new video without reloading the iframe!
     if (iframeRef.current?.contentWindow) {
       try {
         iframeRef.current.contentWindow.postMessage(
@@ -195,7 +196,18 @@ export const WatchView: React.FC<WatchViewProps> = ({
       } catch (_) {}
     }
 
-    // 3. Keep full screen active: if the video was in maximized mode, ensure it stays/returns to full screen
+    // 3. Fallback: if YT Player was not ready, update iframe src directly
+    if (!loadedViaPlayer && iframeRef.current) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const fallbackUrl = `https://www.youtube.com/embed/${currentVideo.id}?playlist=${currentVideo.id}&autoplay=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(
+        origin
+      )}&playsinline=1&widgetid=1&loop=1`;
+      if (!iframeRef.current.src.includes(currentVideo.id)) {
+        iframeRef.current.src = fallbackUrl;
+      }
+    }
+
+    // 4. Keep full screen active: if the video was in maximized mode, ensure it stays 100% fullscreen
     if (isMaximized) {
       setIsMaximized(true);
       const target = playerContainerRef.current || document.documentElement;

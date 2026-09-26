@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Zap, Plus, Layers, Tv, ShieldCheck } from 'lucide-react';
+import { Home, Zap, Plus, Layers, Tv, ShieldCheck, History } from 'lucide-react';
 import { useVideoLibrary } from '../context/VideoLibraryContext';
 import { useAuth } from '../context/AuthContext';
 import { YouTubeViewMode } from '../services/youtubeService';
@@ -53,15 +53,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       isAction: true,
     },
     {
+      id: 'history',
+      label: 'Histórico',
+      icon: <History className="w-5 h-5" />,
+    },
+    {
       id: 'manage',
       label: 'Biblioteca',
       icon: <Layers className="w-5 h-5" />,
       badge: videos.length,
-    },
-    {
-      id: 'watch',
-      label: 'Player',
-      icon: <Tv className="w-5 h-5" />,
     },
   ];
 

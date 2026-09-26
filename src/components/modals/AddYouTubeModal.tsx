@@ -10,9 +10,6 @@ import {
   Plus,
   Cloud,
   Film,
-  Music,
-  Gamepad2,
-  Sparkles,
 } from 'lucide-react';
 import { useVideoLibrary } from '../../context/VideoLibraryContext';
 import { useVideoPlayer } from '../../context/VideoPlayerContext';
@@ -23,38 +20,6 @@ interface AddYouTubeModalProps {
   onClose: () => void;
 }
 
-const CATEGORY_OPTIONS: Array<{
-  id: 'videoclipe' | 'musicas' | 'games' | 'all';
-  label: string;
-  icon: React.ReactNode;
-  desc: string;
-}> = [
-  {
-    id: 'videoclipe',
-    label: '🎬 Videoclip',
-    icon: <Film className="w-3.5 h-3.5 text-cyan-400" />,
-    desc: 'Clipes e vídeos oficiais',
-  },
-  {
-    id: 'musicas',
-    label: '🎵 Música',
-    icon: <Music className="w-3.5 h-3.5 text-violet-400" />,
-    desc: 'Faixas, álbuns e sons',
-  },
-  {
-    id: 'games',
-    label: '🎮 Game',
-    icon: <Gamepad2 className="w-3.5 h-3.5 text-emerald-400" />,
-    desc: 'Trailers, OSTs e jogos',
-  },
-  {
-    id: 'all',
-    label: '🌌 Misto',
-    icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
-    desc: 'Geral / Outros tipos',
-  },
-];
-
 export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({
   isOpen,
   onClose,
@@ -64,7 +29,7 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({
 
   const [inputUrl, setInputUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
-  const [category, setCategory] = useState<'videoclipe' | 'musicas' | 'games' | 'all'>('videoclipe');
+  const category = 'videoclipe';
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -254,42 +219,15 @@ export const AddYouTubeModal: React.FC<AddYouTubeModalProps> = ({
             />
           </div>
 
-          {/* Category selection - strictly matching the options in Editar */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+          {/* Category: Exclusively Video Clip */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#14121b] border border-white/10">
+            <div className="flex items-center gap-2">
               <Film className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Categoria do Vídeo:</span>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORY_OPTIONS.map((cat) => {
-                const isSelected = category === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setCategory(cat.id)}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-gradient-to-r from-violet-600/30 to-cyan-500/20 border-cyan-400 text-white shadow-sm ring-1 ring-cyan-400/40'
-                        : 'bg-[#14121b] border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
-                    }`}
-                  >
-                    <div className="mt-0.5">{cat.icon}</div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold leading-tight flex items-center gap-1.5">
-                        <span>{cat.label}</span>
-                        {isSelected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                        )}
-                      </div>
-                      <p className="text-[10px] text-zinc-400 leading-snug mt-0.5">
-                        {cat.desc}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
+              <span className="text-xs font-semibold text-zinc-300">Categoria:</span>
             </div>
+            <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-bold text-xs border border-cyan-500/30">
+              🎬 Vídeo Clip
+            </span>
           </div>
 
           {/* Cloud Database Guarantee Banner */}

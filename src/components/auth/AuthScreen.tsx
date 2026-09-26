@@ -88,7 +88,7 @@ export const AuthScreen: React.FC = () => {
               Player do Tyrone
             </h1>
             <p className="text-xs text-zinc-400 mt-1 max-w-xs">
-              Músicas, videoclipes e games do YouTube com reprodução sem interrupção e salvamento em nuvem.
+              Vídeo clipes do YouTube com reprodução sem interrupção e salvamento em nuvem.
             </p>
           </div>
 
